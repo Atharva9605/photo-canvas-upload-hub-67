@@ -4,6 +4,8 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
+import { ShareDialog } from "@/components/ShareDialog";
+import VoiceUpload from "@/components/VoiceUpload";
 import { 
   UploadIcon, 
   X, 
@@ -14,7 +16,12 @@ import {
   FilePen, 
   Eye, 
   EyeOff, 
-  RefreshCw 
+  RefreshCw,
+  Share,
+  Paintbrush,
+  Download,
+  Pencil,
+  CheckCircle
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { 
@@ -22,6 +29,7 @@ import {
   CollapsibleContent, 
   CollapsibleTrigger 
 } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Upload = () => {
   const [isDragging, setIsDragging] = useState(false);
@@ -33,7 +41,16 @@ const Upload = () => {
   const [isDataOpen, setIsDataOpen] = useState(true);
   const [extractedData, setExtractedData] = useState<any>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [currentTab, setCurrentTab] = useState("preview");
+  const [annotations, setAnnotations] = useState<Array<{x: number, y: number, text: string}>>([]);
+  const [isAnnotating, setIsAnnotating] = useState(false);
+  const [annotationText, setAnnotationText] = useState("");
+  const [isEditingAnnotation, setIsEditingAnnotation] = useState(false);
+  const [currentAnnotationIndex, setCurrentAnnotationIndex] = useState(-1);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
 
   const acceptedFileTypes = [
@@ -42,6 +59,87 @@ const Upload = () => {
     "image/gif",
     "image/webp",
   ];
+
+  useEffect(() => {
+    // Draw annotations when they change or when the tab changes to annotations
+    if (currentTab === "annotate" && canvasRef.current && imageRef.current && annotations.length > 0) {
+      drawAnnotations();
+    }
+  }, [annotations, currentTab]);
+
+  const drawAnnotations = () => {
+    const canvas = canvasRef.current;
+    const image = imageRef.current;
+    
+    if (!canvas || !image) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Set canvas dimensions to match the image
+    canvas.width = image.width;
+    canvas.height = image.height;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw annotations
+    annotations.forEach((annotation, index) => {
+      // Calculate position based on image dimensions
+      const x = annotation.x * canvas.width;
+      const y = annotation.y * canvas.height;
+      
+      // Draw circle
+      ctx.beginPath();
+      ctx.arc(x, y, 15, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(37, 99, 235, 0.7)';
+      ctx.fill();
+      
+      // Draw number
+      ctx.fillStyle = 'white';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText((index + 1).toString(), x, y);
+      
+      // Draw annotation text
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(annotation.text, x + 20, y);
+    });
+  };
+
+  const handleAnnotationClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isAnnotating || !canvasRef.current || !imageRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    
+    // Calculate position relative to the image
+    const x = (e.clientX - rect.left) / canvas.width;
+    const y = (e.clientY - rect.top) / canvas.height;
+    
+    // If we're not editing an existing annotation, add a new one
+    if (!isEditingAnnotation) {
+      setAnnotations([...annotations, {x, y, text: annotationText || 'Note'}]);
+      setAnnotationText('');
+      drawAnnotations();
+    } else {
+      // If we're editing, update the existing annotation
+      const updatedAnnotations = [...annotations];
+      if (currentAnnotationIndex >= 0) {
+        updatedAnnotations[currentAnnotationIndex] = {
+          ...updatedAnnotations[currentAnnotationIndex],
+          text: annotationText
+        };
+        setAnnotations(updatedAnnotations);
+        setIsEditingAnnotation(false);
+        setCurrentAnnotationIndex(-1);
+        setAnnotationText('');
+      }
+    }
+  };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -100,6 +198,10 @@ const Upload = () => {
     setPreview(previewUrl);
     // Reset extracted data when a new file is selected
     setExtractedData(null);
+    // Reset annotations
+    setAnnotations([]);
+    // Switch to preview tab
+    setCurrentTab("preview");
   };
 
   const clearFile = () => {
@@ -110,6 +212,7 @@ const Upload = () => {
     setPreview(null);
     setExtractedData(null);
     setUploadError(null);
+    setAnnotations([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -188,64 +291,272 @@ const Upload = () => {
     }
   };
 
+  const handleVoiceCommand = (command: string) => {
+    switch (command) {
+      case "select":
+        fileInputRef.current?.click();
+        break;
+      case "upload":
+        handleUpload();
+        break;
+      case "clear":
+        clearFile();
+        break;
+      case "analyze":
+        handleReanalyze();
+        break;
+      case "cancel":
+        if (isUploading || isAnalyzing) {
+          // Simulate cancelling
+          setIsUploading(false);
+          setIsAnalyzing(false);
+          toast({
+            title: "Cancelled",
+            description: "The current operation has been cancelled.",
+          });
+        }
+        break;
+      default:
+        toast({
+          description: `Command not recognized: ${command}`,
+        });
+    }
+  };
+
+  const downloadImage = () => {
+    if (!preview) return;
+    
+    // If we're in annotation mode and have annotations, download the annotated image
+    if (currentTab === "annotate" && annotations.length > 0 && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx || !imageRef.current) return;
+      
+      // Create a new canvas for the combined image
+      const downloadCanvas = document.createElement('canvas');
+      downloadCanvas.width = canvas.width;
+      downloadCanvas.height = canvas.height;
+      const downloadCtx = downloadCanvas.getContext('2d');
+      if (!downloadCtx) return;
+      
+      // Draw the original image
+      downloadCtx.drawImage(imageRef.current, 0, 0, canvas.width, canvas.height);
+      
+      // Draw the annotations on top
+      downloadCtx.drawImage(canvas, 0, 0);
+      
+      // Convert to blob and download
+      downloadCanvas.toBlob((blob) => {
+        if (!blob) return;
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `annotated_${file?.name || 'image.png'}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    } else {
+      // Download the original image
+      const a = document.createElement('a');
+      a.href = preview;
+      a.download = file?.name || 'image.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
   return (
     <Layout>
       <div className="container mx-auto py-8">
         <h1 className="mb-6 text-center text-3xl font-bold">Upload & Analyze Photo</h1>
         
-        <div className="mx-auto max-w-2xl">
-          <div 
-            className={`relative mb-6 flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-6 transition-colors hover:bg-gray-100 ${
-              isDragging ? "border-primary bg-primary/5" : ""
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept={acceptedFileTypes.join(",")}
-              onChange={handleFileChange}
-            />
-            
-            {!preview ? (
-              <div className="text-center">
-                <UploadIcon className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                <p className="mb-2 text-lg font-medium text-gray-700">
-                  Drag & drop your photo here
-                </p>
-                <p className="mb-4 text-sm text-gray-500">
-                  or click to browse files
-                </p>
-                <p className="text-xs text-gray-400">
-                  Supported formats: JPG, PNG, GIF, WebP (max 10MB)
-                </p>
-              </div>
-            ) : (
-              <div className="relative h-full w-full">
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="mx-auto max-h-[250px] max-w-full rounded-lg object-contain"
-                />
-                {!isUploading && !isAnalyzing && (
-                  <button
-                    type="button"
-                    className="absolute right-2 top-2 rounded-full bg-gray-800 p-1 text-white opacity-70 hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearFile();
-                    }}
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <VoiceUpload onCommand={handleVoiceCommand} />
+              <p className="text-sm text-muted-foreground">Use voice commands to control uploads</p>
+            </div>
+            {preview && (
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-1"
+                  onClick={downloadImage}
+                >
+                  <Download className="h-4 w-4" />
+                  Download
+                </Button>
+                
+                {extractedData && (
+                  <ShareDialog
+                    title={file?.name || "My Photo"}
+                    description="Check out this photo I analyzed with PhotoCanvas"
+                    imageUrl={preview}
+                    trigger={
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex items-center gap-1"
+                      >
+                        <Share className="h-4 w-4" />
+                        Share
+                      </Button>
+                    }
+                  />
                 )}
               </div>
             )}
           </div>
+          
+          {!preview ? (
+            <div 
+              className={`relative mb-6 flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/40 p-6 transition-colors hover:bg-muted/70 ${
+                isDragging ? "border-primary bg-primary/5" : ""
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept={acceptedFileTypes.join(",")}
+                onChange={handleFileChange}
+              />
+              
+              <div className="text-center">
+                <UploadIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <p className="mb-2 text-lg font-medium">
+                  Drag & drop your photo here
+                </p>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  or click to browse files
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Supported formats: JPG, PNG, GIF, WebP (max 10MB)
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-6">
+              <Tabs value={currentTab} onValueChange={setCurrentTab}>
+                <TabsList className="mb-4 grid w-full grid-cols-2">
+                  <TabsTrigger value="preview" disabled={isUploading || isAnalyzing}>
+                    Preview
+                  </TabsTrigger>
+                  <TabsTrigger value="annotate" disabled={!preview || isUploading || isAnalyzing}>
+                    Annotate
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="preview" className="relative min-h-[300px] overflow-hidden rounded-lg border bg-card shadow-sm">
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    className="mx-auto max-h-[400px] max-w-full object-contain"
+                    ref={imageRef}
+                  />
+                  {!isUploading && !isAnalyzing && (
+                    <button
+                      type="button"
+                      className="absolute right-2 top-2 rounded-full bg-gray-800 p-1 text-white opacity-70 hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearFile();
+                      }}
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="annotate" className="relative min-h-[300px] rounded-lg border bg-card p-4 shadow-sm">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        size="sm" 
+                        variant={isAnnotating ? "default" : "outline"}
+                        onClick={() => setIsAnnotating(!isAnnotating)}
+                        className="flex items-center gap-1"
+                      >
+                        {isAnnotating ? (
+                          <>
+                            <CheckCircle className="h-4 w-4" />
+                            Done
+                          </>
+                        ) : (
+                          <>
+                            <Pencil className="h-4 w-4" />
+                            Add Annotation
+                          </>
+                        )}
+                      </Button>
+                      {isAnnotating && (
+                        <input
+                          type="text"
+                          placeholder="Annotation text..."
+                          className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                          value={annotationText}
+                          onChange={(e) => setAnnotationText(e.target.value)}
+                        />
+                      )}
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setAnnotations([])}
+                      className="h-9"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                  
+                  <div className="relative overflow-hidden rounded-lg">
+                    <img
+                      src={preview}
+                      alt="Preview"
+                      className="mx-auto max-h-[400px] max-w-full object-contain"
+                      ref={imageRef}
+                      style={{ visibility: 'visible' }}
+                    />
+                    <canvas
+                      ref={canvasRef}
+                      onClick={handleAnnotationClick}
+                      className="absolute left-0 top-0 cursor-crosshair"
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        pointerEvents: isAnnotating ? 'auto' : 'none'
+                      }}
+                    />
+                  </div>
+                  
+                  {annotations.length > 0 && (
+                    <div className="mt-4">
+                      <h3 className="mb-2 text-sm font-medium">Annotations:</h3>
+                      <div className="space-y-2">
+                        {annotations.map((annotation, index) => (
+                          <div key={index} className="flex items-center gap-2 text-sm">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                              {index + 1}
+                            </span>
+                            <span>{annotation.text}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
           
           {uploadError && (
             <div className="mb-6 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -257,12 +568,12 @@ const Upload = () => {
             <Card className="mb-6 overflow-hidden">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-700/20 dark:text-brand-300">
                     <ImageIcon className="h-5 w-5" />
                   </div>
                   <div className="flex-1 truncate">
                     <p className="font-medium">{file.name}</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       {(file.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                   </div>
@@ -333,7 +644,7 @@ const Upload = () => {
                           <FileText className="h-4 w-4 text-blue-500" />
                           <h4 className="font-medium">Extracted Text</h4>
                         </div>
-                        <p className="text-sm text-gray-600">{extractedData.text}</p>
+                        <p className="text-sm text-foreground/80">{extractedData.text}</p>
                       </div>
                     )}
                     
@@ -347,7 +658,7 @@ const Upload = () => {
                           {extractedData.objects.map((obj: string, i: number) => (
                             <span 
                               key={i} 
-                              className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800"
+                              className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800 dark:bg-green-900/30 dark:text-green-300"
                             >
                               {obj}
                             </span>
@@ -364,7 +675,7 @@ const Upload = () => {
                         </div>
                         <div className="flex gap-2">
                           {extractedData.colors.map((color: string, i: number) => (
-                            <div key={i} className="color-item">
+                            <div key={i} className="color-item text-center">
                               <div 
                                 className="h-8 w-8 rounded-md" 
                                 style={{ backgroundColor: color }}
@@ -386,7 +697,7 @@ const Upload = () => {
                           {extractedData.tags.map((tag: string, i: number) => (
                             <span 
                               key={i} 
-                              className="rounded-full bg-orange-100 px-2 py-1 text-xs text-orange-800"
+                              className="rounded-full bg-orange-100 px-2 py-1 text-xs text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
                             >
                               {tag}
                             </span>
@@ -404,7 +715,7 @@ const Upload = () => {
                         <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
                           {Object.entries(extractedData.metadata).map(([key, value]: [string, any]) => (
                             <div key={key}>
-                              <span className="text-xs font-medium text-gray-500">
+                              <span className="text-xs font-medium text-muted-foreground">
                                 {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                               </span>
                               <p className="truncate">{value}</p>
