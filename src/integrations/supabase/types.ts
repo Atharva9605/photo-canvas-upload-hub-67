@@ -9,7 +9,74 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      spreadsheet_data: {
+        Row: {
+          cell_style: Json | null
+          cell_type: string
+          cell_value: string | null
+          column_index: number
+          id: string
+          row_index: number
+          spreadsheet_id: string
+        }
+        Insert: {
+          cell_style?: Json | null
+          cell_type?: string
+          cell_value?: string | null
+          column_index: number
+          id?: string
+          row_index: number
+          spreadsheet_id: string
+        }
+        Update: {
+          cell_style?: Json | null
+          cell_type?: string
+          cell_value?: string | null
+          column_index?: number
+          id?: string
+          row_index?: number
+          spreadsheet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spreadsheet_data_spreadsheet_id_fkey"
+            columns: ["spreadsheet_id"]
+            isOneToOne: false
+            referencedRelation: "spreadsheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spreadsheets: {
+        Row: {
+          auto_save: boolean
+          created_at: string
+          id: string
+          last_edited_at: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          auto_save?: boolean
+          created_at?: string
+          id?: string
+          last_edited_at?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          auto_save?: boolean
+          created_at?: string
+          id?: string
+          last_edited_at?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
