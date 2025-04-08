@@ -9,12 +9,16 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     // Simulate checking auth state
     const checkAuth = () => {
       const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+      const userMode = localStorage.getItem("userMode");
+      
       setIsAuthenticated(isLoggedIn);
+      setIsGuest(userMode === "guest");
       setIsLoading(false);
     };
 
