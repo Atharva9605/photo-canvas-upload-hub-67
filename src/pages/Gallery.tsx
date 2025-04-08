@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -8,8 +9,7 @@ import {
   Share, 
   Search, 
   SlidersHorizontal, 
-  ChevronDown,
-  FileSpreadsheet 
+  ChevronDown 
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { 
@@ -48,6 +48,7 @@ const Gallery = () => {
   const [view, setView] = useState<"grid" | "list">("grid");
 
   useEffect(() => {
+    // Simulate fetching photos from an API
     setTimeout(() => {
       const demoPhotos: Photo[] = [
         {
@@ -107,8 +108,10 @@ const Gallery = () => {
   }, []);
 
   useEffect(() => {
+    // Filter and sort photos
     let result = [...photos];
     
+    // Apply search filter
     if (searchQuery) {
       result = result.filter(photo => 
         photo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -117,12 +120,14 @@ const Gallery = () => {
       );
     }
     
+    // Apply tag filter
     if (filterTag && filterTag !== "all") {
       result = result.filter(photo => 
         photo.tags?.includes(filterTag)
       );
     }
     
+    // Apply sorting
     if (sortBy === "newest") {
       result.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
     } else if (sortBy === "oldest") {
@@ -134,6 +139,7 @@ const Gallery = () => {
     setFilteredPhotos(result);
   }, [photos, searchQuery, sortBy, filterTag]);
 
+  // Get all unique tags
   const allTags = Array.from(new Set(photos.flatMap(photo => photo.tags || [])));
 
   return (
@@ -147,12 +153,6 @@ const Gallery = () => {
                 <Button className="flex items-center gap-2">
                   <Upload className="h-4 w-4" />
                   Upload New
-                </Button>
-              </Link>
-              <Link to="/spreadsheets">
-                <Button variant="secondary" className="flex items-center gap-2">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Spreadsheets
                 </Button>
               </Link>
             </div>
