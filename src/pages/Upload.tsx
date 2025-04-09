@@ -1,4 +1,3 @@
-
 import { useState, useRef, DragEvent, ChangeEvent, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -7,9 +6,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { ShareDialog } from "@/components/ShareDialog";
 import VoiceUpload from "@/components/VoiceUpload";
 import { FileUploadList } from "@/components/FileUploadList";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { 
-  UploadIcon, 
+  Upload as UploadIcon, 
   X, 
   Image as ImageIcon, 
   FileCheck, 
@@ -23,7 +22,8 @@ import {
   Paintbrush,
   Download,
   Pencil,
-  CheckCircle
+  CheckCircle,
+  FileCog
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { 
@@ -66,7 +66,6 @@ const Upload = () => {
     "application/vnd.ms-excel",
   ];
 
-  // Draw annotations when they change or when the tab changes to annotations
   useEffect(() => {
     if (currentTab === "annotate" && canvasRef.current && imageRef.current && annotations.length > 0) {
       drawAnnotations();
@@ -82,33 +81,26 @@ const Upload = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Set canvas dimensions to match the image
     canvas.width = image.width;
     canvas.height = image.height;
     
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw annotations
     annotations.forEach((annotation, index) => {
-      // Calculate position based on image dimensions
       const x = annotation.x * canvas.width;
       const y = annotation.y * canvas.height;
       
-      // Draw circle
       ctx.beginPath();
       ctx.arc(x, y, 15, 0, 2 * Math.PI);
       ctx.fillStyle = 'rgba(37, 99, 235, 0.7)';
       ctx.fill();
       
-      // Draw number
       ctx.fillStyle = 'white';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText((index + 1).toString(), x, y);
       
-      // Draw annotation text
       ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.font = '14px Arial';
       ctx.textAlign = 'left';
@@ -122,17 +114,14 @@ const Upload = () => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     
-    // Calculate position relative to the image
     const x = (e.clientX - rect.left) / canvas.width;
     const y = (e.clientY - rect.top) / canvas.height;
     
-    // If we're not editing an existing annotation, add a new one
     if (!isEditingAnnotation) {
       setAnnotations([...annotations, {x, y, text: annotationText || 'Note'}]);
       setAnnotationText('');
       drawAnnotations();
     } else {
-      // If we're editing, update the existing annotation
       const updatedAnnotations = [...annotations];
       if (currentAnnotationIndex >= 0) {
         updatedAnnotations[currentAnnotationIndex] = {
@@ -174,10 +163,8 @@ const Upload = () => {
   };
 
   const validateAndSetFile = (file: File) => {
-    // Clear previous errors
     setUploadError(null);
     
-    // Validate file type
     if (!acceptedFileTypes.includes(file.type)) {
       setUploadError("Invalid file type. Please upload a JPG, PNG, GIF, WebP, PDF, or text file.");
       toast({
@@ -188,7 +175,6 @@ const Upload = () => {
       return;
     }
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       setUploadError("File too large. Please upload a file less than 10MB in size.");
       toast({
@@ -207,11 +193,8 @@ const Upload = () => {
       setPreview(null);
     }
     
-    // Reset extracted data when a new file is selected
     setExtractedData(null);
-    // Reset annotations
     setAnnotations([]);
-    // Switch to preview tab
     setCurrentTab("preview");
   };
 
@@ -234,9 +217,7 @@ const Upload = () => {
     
     setIsAnalyzing(true);
     
-    // For demonstration, simulate analysis with a delay
     setTimeout(() => {
-      // Mock extracted data based on file type and name
       const isDocument = file.name.toLowerCase().includes("doc") || 
                           file.name.toLowerCase().includes("text") ||
                           file.name.toLowerCase().includes("pdf");
@@ -279,12 +260,10 @@ const Upload = () => {
     setUploadError(null);
     
     try {
-      // Create a file path for storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
       const filePath = `uploads/${fileName}`;
       
-      // Simulate progress
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           const newProgress = prev + 10;
@@ -295,14 +274,12 @@ const Upload = () => {
         });
       }, 300);
       
-      // Upload file to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('user_files')
         .upload(filePath, file);
       
       if (uploadError) throw uploadError;
       
-      // Save upload metadata to the database
       const { error: dbError } = await supabase
         .from('user_uploads')
         .insert({
@@ -314,11 +291,9 @@ const Upload = () => {
       
       if (dbError) throw dbError;
       
-      // Complete upload
       clearInterval(progressInterval);
       setUploadProgress(100);
       
-      // Begin analysis after upload completes
       setTimeout(() => {
         setIsUploading(false);
         
@@ -330,7 +305,6 @@ const Upload = () => {
         if (file.type.startsWith('image/')) {
           analyzeImage();
         } else {
-          // For non-image files, just show success
           setExtractedData({
             metadata: {
               fileName: file.name,
@@ -376,7 +350,6 @@ const Upload = () => {
         break;
       case "cancel":
         if (isUploading || isAnalyzing) {
-          // Simulate cancelling
           setIsUploading(false);
           setIsAnalyzing(false);
           toast({
@@ -395,26 +368,20 @@ const Upload = () => {
   const downloadImage = () => {
     if (!preview) return;
     
-    // If we're in annotation mode and have annotations, download the annotated image
     if (currentTab === "annotate" && annotations.length > 0 && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (!ctx || !imageRef.current) return;
       
-      // Create a new canvas for the combined image
       const downloadCanvas = document.createElement('canvas');
       downloadCanvas.width = canvas.width;
       downloadCanvas.height = canvas.height;
       const downloadCtx = downloadCanvas.getContext('2d');
       if (!downloadCtx) return;
       
-      // Draw the original image
       downloadCtx.drawImage(imageRef.current, 0, 0, canvas.width, canvas.height);
-      
-      // Draw the annotations on top
       downloadCtx.drawImage(canvas, 0, 0);
       
-      // Convert to blob and download
       downloadCanvas.toBlob((blob) => {
         if (!blob) return;
         
@@ -428,7 +395,6 @@ const Upload = () => {
         URL.revokeObjectURL(url);
       });
     } else {
-      // Download the original image
       const a = document.createElement('a');
       a.href = preview;
       a.download = file?.name || 'image.png';
@@ -639,7 +605,7 @@ const Upload = () => {
                           {file?.type === 'application/pdf' ? (
                             <FileText className="h-16 w-16 text-red-500" />
                           ) : file?.type.includes('spreadsheet') || file?.type.includes('excel') ? (
-                            <FileSpreadsheet className="h-16 w-16 text-green-500" />
+                            <FileCog className="h-16 w-16 text-green-500" />
                           ) : (
                             <FileText className="h-16 w-16 text-blue-500" />
                           )}
@@ -683,9 +649,9 @@ const Upload = () => {
                         ) : file.type === 'application/pdf' ? (
                           <FileText className="h-5 w-5" />
                         ) : file.type.includes('spreadsheet') || file.type.includes('excel') ? (
-                          <FileSpreadsheet className="h-5 w-5" />
+                          <FileCog className="h-5 w-5" />
                         ) : (
-                          <FileIcon className="h-5 w-5" />
+                          <FileText className="h-5 w-5" />
                         )}
                       </div>
                       <div className="flex-1 truncate">

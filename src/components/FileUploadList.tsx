@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, UserUpload } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import {
   Table,
@@ -18,8 +17,7 @@ import {
   FileText, 
   Image as ImageIcon, 
   File, 
-  SortAscending, 
-  SortDescending, 
+  ArrowUpDown,
   Clock, 
   ArrowUp,
   ArrowDown
@@ -33,11 +31,11 @@ type SortField = 'file_name' | 'created_at' | 'file_type';
 type SortOrder = 'asc' | 'desc';
 
 export function FileUploadList() {
-  const [uploads, setUploads] = useState<any[]>([]);
+  const [uploads, setUploads] = useState<UserUpload[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-  const [selectedFile, setSelectedFile] = useState<any>(null);
+  const [selectedFile, setSelectedFile] = useState<UserUpload | null>(null);
   const { toast } = useToast();
 
   // Fetch all uploads
@@ -63,7 +61,7 @@ export function FileUploadList() {
         };
       }));
       
-      setUploads(uploadsWithUrls);
+      setUploads(uploadsWithUrls as UserUpload[]);
     } catch (error) {
       console.error('Error fetching uploads:', error);
       toast({
@@ -129,7 +127,7 @@ export function FileUploadList() {
   };
 
   // Preview file
-  const previewFile = (file: any) => {
+  const previewFile = (file: UserUpload) => {
     setSelectedFile(file);
   };
 
@@ -192,7 +190,7 @@ export function FileUploadList() {
             <Button variant="outline" size="sm" className="flex items-center gap-1">
               {sortField === 'file_name' && (
                 <>
-                  <SortAscending className="h-4 w-4" />
+                  <ArrowUpDown className="h-4 w-4" />
                   Sort by Name
                 </>
               )}
@@ -217,11 +215,11 @@ export function FileUploadList() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleSortChange('file_name', 'asc')}>
-              <SortAscending className="h-4 w-4 mr-2" />
+              <ArrowUp className="h-4 w-4 mr-2" />
               Name (A-Z)
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSortChange('file_name', 'desc')}>
-              <SortDescending className="h-4 w-4 mr-2" />
+              <ArrowDown className="h-4 w-4 mr-2" />
               Name (Z-A)
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSortChange('created_at', 'desc')}>

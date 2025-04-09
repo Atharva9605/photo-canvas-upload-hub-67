@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -6,14 +5,13 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  FileSpreadsheet, 
+  FileCog, 
   Trash2, 
   Edit, 
   Calendar, 
   ArrowUp, 
   ArrowDown, 
-  SortAscending,
-  SortDescending,
+  ArrowUpDown,
   Clock
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -150,7 +148,7 @@ export function SpreadsheetList({ setSpreadsheetId }: SpreadsheetListProps) {
               <Button variant="outline" size="sm" className="flex items-center gap-1">
                 {sortField === 'title' ? (
                   <>
-                    <SortAscending className="h-4 w-4" />
+                    <ArrowUpDown className="h-4 w-4" />
                     Sort by Name
                   </>
                 ) : (
@@ -168,11 +166,11 @@ export function SpreadsheetList({ setSpreadsheetId }: SpreadsheetListProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => handleSortChange('title', 'asc')}>
-                <SortAscending className="h-4 w-4 mr-2" />
+                <ArrowUp className="h-4 w-4 mr-2" />
                 Name (A-Z)
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleSortChange('title', 'desc')}>
-                <SortDescending className="h-4 w-4 mr-2" />
+                <ArrowDown className="h-4 w-4 mr-2" />
                 Name (Z-A)
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleSortChange('last_edited_at', 'desc')}>
@@ -186,7 +184,7 @@ export function SpreadsheetList({ setSpreadsheetId }: SpreadsheetListProps) {
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={() => navigate('/spreadsheets')} size="sm" className="flex items-center gap-1">
-            <FileSpreadsheet className="h-4 w-4" />
+            <FileCog className="h-4 w-4" />
             New Spreadsheet
           </Button>
         </div>
@@ -195,7 +193,7 @@ export function SpreadsheetList({ setSpreadsheetId }: SpreadsheetListProps) {
       {spreadsheets.length === 0 ? (
         <Card className="p-8 text-center">
           <div className="mb-4 flex justify-center">
-            <FileSpreadsheet className="h-12 w-12 text-muted-foreground" />
+            <FileCog className="h-12 w-12 text-muted-foreground" />
           </div>
           <h3 className="text-xl font-semibold mb-2">No spreadsheets yet</h3>
           <p className="text-muted-foreground mb-4">
@@ -215,7 +213,7 @@ export function SpreadsheetList({ setSpreadsheetId }: SpreadsheetListProps) {
             >
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 truncate">
-                  <FileSpreadsheet className="h-5 w-5 flex-shrink-0 text-primary" />
+                  <FileCog className="h-5 w-5 flex-shrink-0 text-primary" />
                   <span className="truncate">{sheet.title || 'Untitled Spreadsheet'}</span>
                 </CardTitle>
               </CardHeader>
