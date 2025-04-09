@@ -35,20 +35,9 @@ export const initializeStorage = async () => {
       } else {
         console.log('Successfully created user_files bucket');
         
-        // Set bucket to public
-        const { error: policyError } = await supabase.storage.from('user_files').createPolicy('public-access', {
-          name: 'public-access',
-          definition: {
-            role: 'anon',
-            type: 'READ',
-            resources: ['*'],
-            action: 'SELECT'
-          }
-        });
-        
-        if (policyError) {
-          console.error('Error setting bucket policy:', policyError);
-        }
+        // Policy creation should be done through SQL, not client API
+        // Removed the createPolicy call as it's not available in the client API
+        console.log('Please note: You may need to set up bucket policies through the Supabase dashboard');
       }
     }
   } catch (err) {
