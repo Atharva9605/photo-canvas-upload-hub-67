@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase, UserUpload } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -48,17 +49,29 @@ export function FileUploadList() {
 
       if (error) throw error;
       
+      console.log('Fetched uploads:', data);
+      
       const uploadsWithUrls = await Promise.all((data || []).map(async (upload) => {
-        const { data: urlData } = await supabase.storage
+        // Try getting a public URL first
+        const publicUrlData = supabase.storage
+          .from('user_files')
+          .getPublicUrl(upload.storage_path);
+          
+        // Fallback to signed URL if public URL is not available
+        const { data: signedUrlData } = await supabase.storage
           .from('user_files')
           .createSignedUrl(upload.storage_path, 60 * 60);
           
+        const url = publicUrlData?.data?.publicUrl || signedUrlData?.signedUrl;
+        console.log(`URL for ${upload.file_name}:`, url);
+        
         return {
           ...upload,
-          url: urlData?.signedUrl || null,
+          url: url || null,
         };
       }));
       
+      console.log('Uploads with URLs:', uploadsWithUrls);
       setUploads(uploadsWithUrls as UserUpload[]);
     } catch (error) {
       console.error('Error fetching uploads:', error);
@@ -284,11 +297,20 @@ export function FileUploadList() {
                           </SheetHeader>
                           <div className="mt-6 flex justify-center">
                             {selectedFile?.file_type.startsWith('image/') ? (
-                              <img 
-                                src={selectedFile?.url} 
-                                alt={selectedFile?.file_name} 
-                                className="max-h-[500px] max-w-full object-contain rounded-md"
-                              />
+                              <div className="flex flex-col items-center">
+                                <img 
+                                  src={selectedFile?.url || ''} 
+                                  alt={selectedFile?.file_name} 
+                                  className="max-h-[500px] max-w-full object-contain rounded-md"
+                                  onError={(e) => {
+                                    console.error('Image failed to load:', selectedFile?.url);
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                  {!selectedFile?.url && 'Image URL is missing or invalid'}
+                                </p>
+                              </div>
                             ) : (
                               <div className="flex flex-col items-center gap-4 text-center p-8">
                                 {getFileIcon(selectedFile?.file_type || '')}
@@ -299,6 +321,7 @@ export function FileUploadList() {
                                 <Button 
                                   onClick={() => selectedFile?.url && downloadFile(selectedFile.url, selectedFile.file_name)}
                                   className="mt-2"
+                                  disabled={!selectedFile?.url}
                                 >
                                   <Download className="mr-2 h-4 w-4" />
                                   Download
@@ -314,6 +337,7 @@ export function FileUploadList() {
                         size="sm" 
                         onClick={() => upload.url && downloadFile(upload.url, upload.file_name)}
                         className="h-8 w-8 p-0"
+                        disabled={!upload.url}
                       >
                         <Download className="h-4 w-4" />
                       </Button>
