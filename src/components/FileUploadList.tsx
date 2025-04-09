@@ -38,7 +38,6 @@ export function FileUploadList() {
   const [selectedFile, setSelectedFile] = useState<UserUpload | null>(null);
   const { toast } = useToast();
 
-  // Fetch all uploads
   const fetchUploads = async () => {
     try {
       setLoading(true);
@@ -49,11 +48,10 @@ export function FileUploadList() {
 
       if (error) throw error;
       
-      // Get signed URLs for each file
       const uploadsWithUrls = await Promise.all((data || []).map(async (upload) => {
         const { data: urlData } = await supabase.storage
           .from('user_files')
-          .createSignedUrl(upload.storage_path, 60 * 60); // 1 hour expiry
+          .createSignedUrl(upload.storage_path, 60 * 60);
           
         return {
           ...upload,
@@ -74,17 +72,14 @@ export function FileUploadList() {
     }
   };
 
-  // Delete an upload
   const deleteUpload = async (id: string, storagePath: string) => {
     try {
-      // Delete from storage
       const { error: storageError } = await supabase.storage
         .from('user_files')
         .remove([storagePath]);
 
       if (storageError) throw storageError;
 
-      // Delete from database
       const { error: dbError } = await supabase
         .from('user_uploads')
         .delete()
@@ -92,7 +87,6 @@ export function FileUploadList() {
 
       if (dbError) throw dbError;
 
-      // Update the list
       setUploads(uploads.filter(upload => upload.id !== id));
       
       toast({
@@ -109,13 +103,11 @@ export function FileUploadList() {
     }
   };
 
-  // Handle sort change
   const handleSortChange = (field: SortField, order: SortOrder) => {
     setSortField(field);
     setSortOrder(order);
   };
 
-  // Get file icon based on file type
   const getFileIcon = (fileType: string) => {
     if (fileType.startsWith('image/')) {
       return <ImageIcon className="h-5 w-5 text-blue-500" />;
@@ -126,12 +118,10 @@ export function FileUploadList() {
     }
   };
 
-  // Preview file
   const previewFile = (file: UserUpload) => {
     setSelectedFile(file);
   };
 
-  // Download file
   const downloadFile = async (url: string, fileName: string) => {
     try {
       const response = await fetch(url);
@@ -155,7 +145,6 @@ export function FileUploadList() {
     }
   };
 
-  // Load uploads when component mounts or sort params change
   useEffect(() => {
     fetchUploads();
   }, [sortField, sortOrder]);
