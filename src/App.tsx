@@ -18,6 +18,7 @@ import Gallery from "./pages/Gallery";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
+import Spreadsheets from "./pages/Spreadsheets";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,14 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <Profile />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/spreadsheets" 
+                element={
+                  <ProtectedRoute>
+                    <Spreadsheets />
                   </ProtectedRoute>
                 } 
               />
