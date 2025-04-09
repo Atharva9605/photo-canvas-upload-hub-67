@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, Files, Settings, Upload, User } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 interface UploadHistoryItem {
   id: string;
@@ -22,6 +23,7 @@ interface UploadHistoryItem {
 const Profile = () => {
   const [uploadHistory, setUploadHistory] = useState<UploadHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedFile, setSelectedFile] = useState<UploadHistoryItem | null>(null);
   const [userPreferences, setUserPreferences] = useState({
     language: "English",
     theme: "light",
@@ -112,6 +114,10 @@ const Profile = () => {
     }
   };
 
+  const viewFile = (file: UploadHistoryItem) => {
+    setSelectedFile(file);
+  };
+
   return (
     <Layout>
       <div className="container mx-auto py-8">
@@ -126,7 +132,9 @@ const Profile = () => {
                 </div>
                 <div>
                   <CardTitle>User Account</CardTitle>
-                  <p className="text-sm text-muted-foreground">Manage your account settings and uploads</p>
+                  <p className="text-sm text-muted-foreground">
+                    Manage your account settings and uploads
+                  </p>
                 </div>
               </div>
               <Button variant="outline" asChild>
@@ -172,32 +180,92 @@ const Profile = () => {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {uploadHistory.map((item) => (
                     <Card key={item.id} className="overflow-hidden">
-                      <div className="flex items-start p-4">
-                        <div className={`flex h-16 w-16 items-center justify-center rounded-md ${getFileIcon(item.fileType)}`}>
-                          <Files className="h-8 w-8" />
-                        </div>
-                        <div className="ml-4 flex-1">
-                          <h3 className="font-medium">{item.fileName}</h3>
-                          <div className="mt-1 text-sm text-gray-500">
-                            <p className="flex items-center">
-                              <Clock className="mr-1 h-3 w-3" />{formatDate(item.uploadDate)}
-                            </p>
-                            <p>{item.fileSize} • {item.fileType.split('/')[1]?.toUpperCase() || item.fileType}</p>
-                          </div>
-                          {item.tags && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {item.tags.map((tag, idx) => (
-                                <span 
-                                  key={idx} 
-                                  className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary-foreground"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
+                      <Sheet>
+                        <SheetTrigger asChild>
+                          <div className="flex cursor-pointer items-start p-4 hover:bg-muted/50 transition-colors" onClick={() => viewFile(item)}>
+                            <div className={`flex h-16 w-16 items-center justify-center rounded-md ${getFileIcon(item.fileType)}`}>
+                              <Files className="h-8 w-8" />
                             </div>
-                          )}
-                        </div>
-                      </div>
+                            <div className="ml-4 flex-1">
+                              <h3 className="font-medium">{item.fileName}</h3>
+                              <div className="mt-1 text-sm text-gray-500">
+                                <p className="flex items-center">
+                                  <Clock className="mr-1 h-3 w-3" />{formatDate(item.uploadDate)}
+                                </p>
+                                <p>{item.fileSize} • {item.fileType.split('/')[1]?.toUpperCase() || item.fileType}</p>
+                              </div>
+                              {item.tags && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {item.tags.map((tag, idx) => (
+                                    <span 
+                                      key={idx} 
+                                      className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary-foreground"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </SheetTrigger>
+                        <SheetContent side="right" className="sm:max-w-lg">
+                          <SheetHeader>
+                            <SheetTitle>{selectedFile?.fileName}</SheetTitle>
+                            <SheetDescription>
+                              Uploaded on {selectedFile?.uploadDate ? format(new Date(selectedFile.uploadDate), 'PPP') : ''}
+                            </SheetDescription>
+                          </SheetHeader>
+                          <div className="mt-6 flex justify-center">
+                            {selectedFile?.fileType.startsWith('image/') ? (
+                              <div className="flex flex-col items-center">
+                                <img 
+                                  src={selectedFile?.url || ''} 
+                                  alt={selectedFile?.fileName} 
+                                  className="max-h-[500px] max-w-full object-contain rounded-md"
+                                  onError={(e) => {
+                                    console.error('Image failed to load:', selectedFile?.url);
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                  {!selectedFile?.url && 'Image URL is missing or invalid'}
+                                </p>
+                              </div>
+                            ) : selectedFile?.fileType === 'application/pdf' ? (
+                              <div className="flex flex-col items-center w-full">
+                                <iframe 
+                                  src={selectedFile?.url || ''} 
+                                  className="w-full h-[70vh] border rounded-md"
+                                  title={selectedFile?.fileName}
+                                ></iframe>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-4 text-center p-8">
+                                <Files className="h-12 w-12" />
+                                <p className="text-lg font-medium">{selectedFile?.fileName}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {selectedFile?.fileType} • {selectedFile?.fileSize}
+                                </p>
+                                <Button 
+                                  asChild
+                                  className="mt-2"
+                                  disabled={!selectedFile?.url}
+                                >
+                                  <a 
+                                    href={selectedFile?.url || '#'} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    download={selectedFile?.fileName}
+                                  >
+                                    Download File
+                                  </a>
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </SheetContent>
+                      </Sheet>
                     </Card>
                   ))}
                 </div>
