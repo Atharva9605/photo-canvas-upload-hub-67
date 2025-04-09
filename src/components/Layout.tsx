@@ -18,7 +18,7 @@ const Layout = ({ children }: LayoutProps) => {
       </main>
       <footer className="border-t bg-card py-6 text-center text-sm text-muted-foreground">
         <div className="container mx-auto flex items-center justify-between px-4">
-          <p>© {new Date().getFullYear()} PhotoCanvas. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Govigyan-CloudBase. All rights reserved.</p>
           <div className="flex items-center space-x-4">
             <ThemeToggle />
           </div>

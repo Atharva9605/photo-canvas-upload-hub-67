@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, FileImage, Home, Upload, User } from "lucide-react";
+import { FileSpreadsheet, FileImage, Files, Home, Upload, User } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 
 const Navbar = () => {
@@ -46,7 +46,7 @@ const Navbar = () => {
         <div className="flex items-center gap-2">
           <Link to="/" className="flex items-center gap-2 text-xl font-bold">
             <FileImage className="h-6 w-6 text-brand-500" />
-            <span>PhotoCanvas</span>
+            <span>Govigyan-CloudBase</span>
           </Link>
         </div>
         
@@ -67,9 +67,9 @@ const Navbar = () => {
             </Button>
             
             <Button variant="ghost" asChild className="flex items-center gap-2">
-              <Link to="/gallery" className={location.pathname === "/gallery" ? "text-brand-600" : ""}>
-                <FileImage className="h-4 w-4" />
-                <span className="hidden sm:inline">Gallery</span>
+              <Link to="/all-files" className={location.pathname === "/all-files" ? "text-brand-600" : ""}>
+                <Files className="h-4 w-4" />
+                <span className="hidden sm:inline">All Files</span>
               </Link>
             </Button>
             

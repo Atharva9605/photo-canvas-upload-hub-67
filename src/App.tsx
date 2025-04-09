@@ -14,7 +14,7 @@ import Signup from "./pages/Signup";
 import ResetPassword from "./pages/ResetPassword";
 import Home from "./pages/Home";
 import Upload from "./pages/Upload";
-import Gallery from "./pages/Gallery";
+import AllFiles from "./pages/AllFiles";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
@@ -82,10 +82,10 @@ const App = () => {
                 } 
               />
               <Route 
-                path="/gallery" 
+                path="/all-files" 
                 element={
                   <ProtectedRoute>
-                    <Gallery />
+                    <AllFiles />
                   </ProtectedRoute>
                 } 
               />

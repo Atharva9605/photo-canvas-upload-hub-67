@@ -13,19 +13,46 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 
 // Initialize storage bucket if it doesn't exist
 export const initializeStorage = async () => {
-  const { data: buckets } = await supabase.storage.listBuckets();
-  const userFilesBucket = buckets?.find(bucket => bucket.name === 'user_files');
-  
-  if (!userFilesBucket) {
-    console.log('Creating user_files bucket');
-    const { error } = await supabase.storage.createBucket('user_files', {
-      public: true,
-      fileSizeLimit: 10 * 1024 * 1024 // 10MB
-    });
+  try {
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
     
-    if (error) {
-      console.error('Error creating bucket:', error);
+    if (listError) {
+      console.error('Error listing buckets:', listError);
+      return;
     }
+    
+    const userFilesBucket = buckets?.find(bucket => bucket.name === 'user_files');
+    
+    if (!userFilesBucket) {
+      console.log('Creating user_files bucket');
+      const { error } = await supabase.storage.createBucket('user_files', {
+        public: true,
+        fileSizeLimit: 10 * 1024 * 1024 // 10MB
+      });
+      
+      if (error) {
+        console.error('Error creating bucket:', error);
+      } else {
+        console.log('Successfully created user_files bucket');
+        
+        // Set bucket to public
+        const { error: policyError } = await supabase.storage.from('user_files').createPolicy('public-access', {
+          name: 'public-access',
+          definition: {
+            role: 'anon',
+            type: 'READ',
+            resources: ['*'],
+            action: 'SELECT'
+          }
+        });
+        
+        if (policyError) {
+          console.error('Error setting bucket policy:', policyError);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to initialize storage:', err);
   }
 };
 

@@ -1,37 +1,25 @@
-import { useState, useRef, DragEvent, ChangeEvent, useEffect } from "react";
+
+import { useState, useRef, DragEvent, ChangeEvent } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { ShareDialog } from "@/components/ShareDialog";
 import VoiceUpload from "@/components/VoiceUpload";
 import { FileUploadList } from "@/components/FileUploadList";
 import { supabase } from "@/lib/supabase";
 import { 
   Upload as UploadIcon, 
-  X, 
+  X,
   Image as ImageIcon, 
   FileCheck, 
   FileText, 
-  FileImage, 
-  FilePen, 
-  Eye, 
-  EyeOff, 
-  RefreshCw,
-  Share,
-  Paintbrush,
   Download,
-  Pencil,
-  CheckCircle,
+  Files,
   FileCog
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Collapsible, 
-  CollapsibleContent, 
-  CollapsibleTrigger 
-} from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useNavigate } from "react-router-dom";
 
 const Upload = () => {
   const [isDragging, setIsDragging] = useState(false);
@@ -39,21 +27,12 @@ const Upload = () => {
   const [preview, setPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isDataOpen, setIsDataOpen] = useState(true);
-  const [extractedData, setExtractedData] = useState<any>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [currentTab, setCurrentTab] = useState("preview");
-  const [annotations, setAnnotations] = useState<Array<{x: number, y: number, text: string}>>([]);
-  const [isAnnotating, setIsAnnotating] = useState(false);
-  const [annotationText, setAnnotationText] = useState("");
-  const [isEditingAnnotation, setIsEditingAnnotation] = useState(false);
-  const [currentAnnotationIndex, setCurrentAnnotationIndex] = useState(-1);
+  const [currentTab, setCurrentTab] = useState("upload");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const acceptedFileTypes = [
     "image/jpeg",
@@ -65,76 +44,6 @@ const Upload = () => {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
   ];
-
-  useEffect(() => {
-    if (currentTab === "annotate" && canvasRef.current && imageRef.current && annotations.length > 0) {
-      drawAnnotations();
-    }
-  }, [annotations, currentTab]);
-
-  const drawAnnotations = () => {
-    const canvas = canvasRef.current;
-    const image = imageRef.current;
-    
-    if (!canvas || !image) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    canvas.width = image.width;
-    canvas.height = image.height;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    annotations.forEach((annotation, index) => {
-      const x = annotation.x * canvas.width;
-      const y = annotation.y * canvas.height;
-      
-      ctx.beginPath();
-      ctx.arc(x, y, 15, 0, 2 * Math.PI);
-      ctx.fillStyle = 'rgba(37, 99, 235, 0.7)';
-      ctx.fill();
-      
-      ctx.fillStyle = 'white';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText((index + 1).toString(), x, y);
-      
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-      ctx.font = '14px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillText(annotation.text, x + 20, y);
-    });
-  };
-
-  const handleAnnotationClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isAnnotating || !canvasRef.current || !imageRef.current) return;
-    
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    
-    const x = (e.clientX - rect.left) / canvas.width;
-    const y = (e.clientY - rect.top) / canvas.height;
-    
-    if (!isEditingAnnotation) {
-      setAnnotations([...annotations, {x, y, text: annotationText || 'Note'}]);
-      setAnnotationText('');
-      drawAnnotations();
-    } else {
-      const updatedAnnotations = [...annotations];
-      if (currentAnnotationIndex >= 0) {
-        updatedAnnotations[currentAnnotationIndex] = {
-          ...updatedAnnotations[currentAnnotationIndex],
-          text: annotationText
-        };
-        setAnnotations(updatedAnnotations);
-        setIsEditingAnnotation(false);
-        setCurrentAnnotationIndex(-1);
-        setAnnotationText('');
-      }
-    }
-  };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -192,10 +101,6 @@ const Upload = () => {
     } else {
       setPreview(null);
     }
-    
-    setExtractedData(null);
-    setAnnotations([]);
-    setCurrentTab("preview");
   };
 
   const clearFile = () => {
@@ -204,52 +109,10 @@ const Upload = () => {
     }
     setFile(null);
     setPreview(null);
-    setExtractedData(null);
     setUploadError(null);
-    setAnnotations([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  };
-
-  const analyzeImage = async () => {
-    if (!file) return;
-    
-    setIsAnalyzing(true);
-    
-    setTimeout(() => {
-      const isDocument = file.name.toLowerCase().includes("doc") || 
-                          file.name.toLowerCase().includes("text") ||
-                          file.name.toLowerCase().includes("pdf");
-      
-      const isPhoto = file.name.toLowerCase().includes("photo") || 
-                      file.name.toLowerCase().includes("img") ||
-                      file.type === "image/jpeg";
-      
-      const mockData = {
-        text: isDocument ? "Sample extracted text from the document. This would be actual OCR result in production." : "",
-        objects: isPhoto ? ["person", "tree", "building"] : [],
-        colors: ["#3B82F6", "#10B981", "#F59E0B"],
-        metadata: {
-          fileName: file.name,
-          fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-          fileType: file.type,
-          dimensions: "1200 x 800 px",
-          createdAt: new Date().toISOString()
-        },
-        tags: isDocument ? ["document", "text"] : isPhoto ? ["photo", "landscape"] : ["drawing", "artwork"],
-        confidence: 0.89,
-        language: "English",
-      };
-      
-      setExtractedData(mockData);
-      setIsAnalyzing(false);
-      
-      toast({
-        title: "Analysis complete",
-        description: "We've extracted information from your file.",
-      });
-    }, 2500);
   };
 
   const handleUpload = async () => {
@@ -296,24 +159,15 @@ const Upload = () => {
       
       setTimeout(() => {
         setIsUploading(false);
+        setFile(null);
+        setPreview(null);
         
         toast({
           title: "Upload successful",
           description: "Your file has been uploaded successfully.",
         });
         
-        if (file.type.startsWith('image/')) {
-          analyzeImage();
-        } else {
-          setExtractedData({
-            metadata: {
-              fileName: file.name,
-              fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-              fileType: file.type,
-              createdAt: new Date().toISOString()
-            }
-          });
-        }
+        navigate("/all-files");
       }, 500);
       
     } catch (error) {
@@ -328,12 +182,6 @@ const Upload = () => {
     }
   };
 
-  const handleReanalyze = () => {
-    if (file) {
-      analyzeImage();
-    }
-  };
-
   const handleVoiceCommand = (command: string) => {
     switch (command) {
       case "select":
@@ -345,16 +193,12 @@ const Upload = () => {
       case "clear":
         clearFile();
         break;
-      case "analyze":
-        handleReanalyze();
-        break;
       case "cancel":
-        if (isUploading || isAnalyzing) {
+        if (isUploading) {
           setIsUploading(false);
-          setIsAnalyzing(false);
           toast({
             title: "Cancelled",
-            description: "The current operation has been cancelled.",
+            description: "The upload has been cancelled.",
           });
         }
         break;
@@ -368,46 +212,18 @@ const Upload = () => {
   const downloadImage = () => {
     if (!preview) return;
     
-    if (currentTab === "annotate" && annotations.length > 0 && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (!ctx || !imageRef.current) return;
-      
-      const downloadCanvas = document.createElement('canvas');
-      downloadCanvas.width = canvas.width;
-      downloadCanvas.height = canvas.height;
-      const downloadCtx = downloadCanvas.getContext('2d');
-      if (!downloadCtx) return;
-      
-      downloadCtx.drawImage(imageRef.current, 0, 0, canvas.width, canvas.height);
-      downloadCtx.drawImage(canvas, 0, 0);
-      
-      downloadCanvas.toBlob((blob) => {
-        if (!blob) return;
-        
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `annotated_${file?.name || 'image.png'}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      });
-    } else {
-      const a = document.createElement('a');
-      a.href = preview;
-      a.download = file?.name || 'image.png';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
+    const a = document.createElement('a');
+    a.href = preview;
+    a.download = file?.name || 'image.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   return (
     <Layout>
       <div className="container mx-auto py-8">
-        <h1 className="mb-6 text-center text-3xl font-bold">Upload & Analyze Files</h1>
+        <h1 className="mb-6 text-center text-3xl font-bold">Upload Files</h1>
         
         <div className="mx-auto max-w-4xl">
           <div className="mb-6 flex items-center justify-between">
@@ -426,29 +242,11 @@ const Upload = () => {
                   <Download className="h-4 w-4" />
                   Download
                 </Button>
-                
-                {extractedData && (
-                  <ShareDialog
-                    title={file?.name || "My File"}
-                    description="Check out this file I analyzed"
-                    imageUrl={preview}
-                    trigger={
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex items-center gap-1"
-                      >
-                        <Share className="h-4 w-4" />
-                        Share
-                      </Button>
-                    }
-                  />
-                )}
               </div>
             )}
           </div>
           
-          <Tabs defaultValue="upload" className="mb-8">
+          <Tabs defaultValue="upload" className="mb-8" value={currentTab} onValueChange={setCurrentTab}>
             <TabsList className="mb-4 grid w-full grid-cols-2">
               <TabsTrigger value="upload">Upload File</TabsTrigger>
               <TabsTrigger value="files">My Files</TabsTrigger>
@@ -489,115 +287,25 @@ const Upload = () => {
               ) : (
                 <div className="mb-6">
                   {file?.type.startsWith('image/') ? (
-                    <Tabs value={currentTab} onValueChange={setCurrentTab}>
-                      <TabsList className="mb-4 grid w-full grid-cols-2">
-                        <TabsTrigger value="preview" disabled={isUploading || isAnalyzing}>
-                          Preview
-                        </TabsTrigger>
-                        <TabsTrigger value="annotate" disabled={!preview || isUploading || isAnalyzing}>
-                          Annotate
-                        </TabsTrigger>
-                      </TabsList>
-                      
-                      <TabsContent value="preview" className="relative min-h-[300px] overflow-hidden rounded-lg border bg-card shadow-sm">
-                        <img
-                          src={preview}
-                          alt="Preview"
-                          className="mx-auto max-h-[400px] max-w-full object-contain"
-                          ref={imageRef}
-                        />
-                        {!isUploading && !isAnalyzing && (
-                          <button
-                            type="button"
-                            className="absolute right-2 top-2 rounded-full bg-gray-800 p-1 text-white opacity-70 hover:opacity-100"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              clearFile();
-                            }}
-                          >
-                            <X className="h-5 w-5" />
-                          </button>
-                        )}
-                      </TabsContent>
-                      
-                      <TabsContent value="annotate" className="relative min-h-[300px] rounded-lg border bg-card p-4 shadow-sm">
-                        <div className="mb-4 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              size="sm" 
-                              variant={isAnnotating ? "default" : "outline"}
-                              onClick={() => setIsAnnotating(!isAnnotating)}
-                              className="flex items-center gap-1"
-                            >
-                              {isAnnotating ? (
-                                <>
-                                  <CheckCircle className="h-4 w-4" />
-                                  Done
-                                </>
-                              ) : (
-                                <>
-                                  <Pencil className="h-4 w-4" />
-                                  Add Annotation
-                                </>
-                              )}
-                            </Button>
-                            {isAnnotating && (
-                              <input
-                                type="text"
-                                placeholder="Annotation text..."
-                                className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
-                                value={annotationText}
-                                onChange={(e) => setAnnotationText(e.target.value)}
-                              />
-                            )}
-                          </div>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            onClick={() => setAnnotations([])}
-                            className="h-9"
-                          >
-                            Clear All
-                          </Button>
-                        </div>
-                        
-                        <div className="relative overflow-hidden rounded-lg">
-                          <img
-                            src={preview}
-                            alt="Preview"
-                            className="mx-auto max-h-[400px] max-w-full object-contain"
-                            ref={imageRef}
-                            style={{ visibility: 'visible' }}
-                          />
-                          <canvas
-                            ref={canvasRef}
-                            onClick={handleAnnotationClick}
-                            className="absolute left-0 top-0 cursor-crosshair"
-                            style={{ 
-                              width: '100%', 
-                              height: '100%', 
-                              pointerEvents: isAnnotating ? 'auto' : 'none'
-                            }}
-                          />
-                        </div>
-                        
-                        {annotations.length > 0 && (
-                          <div className="mt-4">
-                            <h3 className="mb-2 text-sm font-medium">Annotations:</h3>
-                            <div className="space-y-2">
-                              {annotations.map((annotation, index) => (
-                                <div key={index} className="flex items-center gap-2 text-sm">
-                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                                    {index + 1}
-                                  </span>
-                                  <span>{annotation.text}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </TabsContent>
-                    </Tabs>
+                    <div className="relative min-h-[300px] overflow-hidden rounded-lg border bg-card shadow-sm">
+                      <img
+                        src={preview}
+                        alt="Preview"
+                        className="mx-auto max-h-[400px] max-w-full object-contain"
+                      />
+                      {!isUploading && (
+                        <button
+                          type="button"
+                          className="absolute right-2 top-2 rounded-full bg-gray-800 p-1 text-white opacity-70 hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearFile();
+                          }}
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <Card className="relative min-h-[200px] flex items-center justify-center">
                       <CardContent className="p-6 text-center">
@@ -615,7 +323,7 @@ const Upload = () => {
                           {(file?.size ? (file.size / 1024 / 1024).toFixed(2) : '0')} MB • {file?.type}
                         </p>
                         
-                        {!isUploading && !isAnalyzing && (
+                        {!isUploading && (
                           <button
                             type="button"
                             className="absolute right-2 top-2 rounded-full bg-gray-200 p-1 text-gray-700 opacity-70 hover:opacity-100"
@@ -661,9 +369,9 @@ const Upload = () => {
                         </p>
                       </div>
                       <div>
-                        {isUploading || isAnalyzing ? (
+                        {isUploading ? (
                           <div className="text-right text-sm font-medium text-brand-600">
-                            {isUploading ? `${uploadProgress}%` : 'Analyzing...'}
+                            {uploadProgress}%
                           </div>
                         ) : (
                           <FileCheck className="h-5 w-5 text-green-500" />
@@ -676,163 +384,29 @@ const Upload = () => {
                         <Progress value={uploadProgress} className="h-2" />
                       </div>
                     )}
-                    
-                    {isAnalyzing && (
-                      <div className="mt-3">
-                        <Progress value={undefined} className="h-2 animate-pulse" />
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
-              )}
-              
-              {extractedData && (
-                <Collapsible
-                  open={isDataOpen}
-                  onOpenChange={setIsDataOpen}
-                  className="mb-6 rounded-lg border bg-card shadow-sm"
-                >
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <h3 className="text-lg font-semibold">Extracted Data</h3>
-                    <div className="flex items-center gap-2">
-                      {file?.type.startsWith('image/') && (
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleReanalyze();
-                          }}
-                        >
-                          <RefreshCw className="mr-1 h-4 w-4" />
-                          Re-analyze
-                        </Button>
-                      )}
-                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          {isDataOpen ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </CollapsibleTrigger>
-                    </div>
-                  </div>
-                  
-                  <CollapsibleContent>
-                    <div className="border-t px-4 py-3">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {extractedData.text && (
-                          <div className="analysis-section">
-                            <div className="mb-2 flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-blue-500" />
-                              <h4 className="font-medium">Extracted Text</h4>
-                            </div>
-                            <p className="text-sm text-foreground/80">{extractedData.text}</p>
-                          </div>
-                        )}
-                        
-                        {extractedData.objects && extractedData.objects.length > 0 && (
-                          <div className="analysis-section">
-                            <div className="mb-2 flex items-center gap-2">
-                              <FileImage className="h-4 w-4 text-green-500" />
-                              <h4 className="font-medium">Detected Objects</h4>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {extractedData.objects.map((obj: string, i: number) => (
-                                <span 
-                                  key={i} 
-                                  className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                                >
-                                  {obj}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {extractedData.colors && extractedData.colors.length > 0 && (
-                          <div className="analysis-section">
-                            <div className="mb-2 flex items-center gap-2">
-                              <FilePen className="h-4 w-4 text-purple-500" />
-                              <h4 className="font-medium">Dominant Colors</h4>
-                            </div>
-                            <div className="flex gap-2">
-                              {extractedData.colors.map((color: string, i: number) => (
-                                <div key={i} className="color-item text-center">
-                                  <div 
-                                    className="h-8 w-8 rounded-md" 
-                                    style={{ backgroundColor: color }}
-                                  />
-                                  <span className="mt-1 text-xs">{color}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {extractedData.tags && extractedData.tags.length > 0 && (
-                          <div className="analysis-section">
-                            <div className="mb-2 flex items-center gap-2">
-                              <FilePen className="h-4 w-4 text-orange-500" />
-                              <h4 className="font-medium">Tags</h4>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {extractedData.tags.map((tag: string, i: number) => (
-                                <span 
-                                  key={i} 
-                                  className="rounded-full bg-orange-100 px-2 py-1 text-xs text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {extractedData.metadata && (
-                          <div className="analysis-section col-span-full">
-                            <div className="mb-2 flex items-center gap-2">
-                              <FileCheck className="h-4 w-4 text-blue-500" />
-                              <h4 className="font-medium">Metadata</h4>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
-                              {Object.entries(extractedData.metadata).map(([key, value]: [string, any]) => (
-                                <div key={key}>
-                                  <span className="text-xs font-medium text-muted-foreground">
-                                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                                  </span>
-                                  <p className="truncate">{value}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
               )}
               
               <div className="flex justify-center">
                 <Button
                   onClick={handleUpload}
-                  disabled={!file || isUploading || isAnalyzing}
+                  disabled={!file || isUploading}
                   className="min-w-[200px]"
                 >
-                  {isUploading 
-                    ? "Uploading..." 
-                    : isAnalyzing 
-                      ? "Analyzing..." 
-                      : extractedData 
-                        ? "Upload Again" 
-                        : "Upload & Analyze"}
+                  {isUploading ? "Uploading..." : "Upload File"}
                 </Button>
               </div>
             </TabsContent>
             
             <TabsContent value="files">
+              <div className="mb-4 flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Recent Files</h2>
+                <Button onClick={() => navigate("/all-files")} variant="outline" size="sm" className="flex items-center gap-1">
+                  <Files className="h-4 w-4" />
+                  View All Files
+                </Button>
+              </div>
               <FileUploadList />
             </TabsContent>
           </Tabs>

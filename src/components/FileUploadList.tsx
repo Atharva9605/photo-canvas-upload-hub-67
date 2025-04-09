@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, UserUpload } from '@/lib/supabase';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import {
   Table,
   TableBody,
@@ -49,29 +49,37 @@ export function FileUploadList() {
 
       if (error) throw error;
       
-      console.log('Fetched uploads:', data);
-      
       const uploadsWithUrls = await Promise.all((data || []).map(async (upload) => {
-        // Try getting a public URL first
-        const publicUrlData = supabase.storage
-          .from('user_files')
-          .getPublicUrl(upload.storage_path);
+        try {
+          // Try getting a public URL first
+          const publicUrlData = supabase.storage
+            .from('user_files')
+            .getPublicUrl(upload.storage_path);
+            
+          // Fallback to signed URL if public URL is not available
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+            .from('user_files')
+            .createSignedUrl(upload.storage_path, 60 * 60);
+            
+          if (signedUrlError) {
+            console.error(`Error getting signed URL for ${upload.file_name}:`, signedUrlError);
+          }
           
-        // Fallback to signed URL if public URL is not available
-        const { data: signedUrlData } = await supabase.storage
-          .from('user_files')
-          .createSignedUrl(upload.storage_path, 60 * 60);
+          const url = publicUrlData?.data?.publicUrl || signedUrlData?.signedUrl;
           
-        const url = publicUrlData?.data?.publicUrl || signedUrlData?.signedUrl;
-        console.log(`URL for ${upload.file_name}:`, url);
-        
-        return {
-          ...upload,
-          url: url || null,
-        };
+          return {
+            ...upload,
+            url: url || null,
+          };
+        } catch (err) {
+          console.error(`Error processing URL for ${upload.file_name}:`, err);
+          return {
+            ...upload,
+            url: null,
+          };
+        }
       }));
       
-      console.log('Uploads with URLs:', uploadsWithUrls);
       setUploads(uploadsWithUrls as UserUpload[]);
     } catch (error) {
       console.error('Error fetching uploads:', error);
@@ -185,60 +193,62 @@ export function FileUploadList() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Your Files</h2>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="flex items-center gap-1">
-              {sortField === 'file_name' && (
-                <>
-                  <ArrowUpDown className="h-4 w-4" />
-                  Sort by Name
-                </>
-              )}
-              {sortField === 'created_at' && (
-                <>
-                  <Clock className="h-4 w-4" />
-                  Sort by Date
-                </>
-              )}
-              {sortField === 'file_type' && (
-                <>
-                  <FileIcon className="h-4 w-4" />
-                  Sort by Type
-                </>
-              )}
-              {sortOrder === 'asc' ? (
-                <ArrowUp className="h-4 w-4 ml-1" />
-              ) : (
-                <ArrowDown className="h-4 w-4 ml-1" />
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleSortChange('file_name', 'asc')}>
-              <ArrowUp className="h-4 w-4 mr-2" />
-              Name (A-Z)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSortChange('file_name', 'desc')}>
-              <ArrowDown className="h-4 w-4 mr-2" />
-              Name (Z-A)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSortChange('created_at', 'desc')}>
-              <ArrowDown className="h-4 w-4 mr-2" />
-              Newest First
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSortChange('created_at', 'asc')}>
-              <ArrowUp className="h-4 w-4 mr-2" />
-              Oldest First
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSortChange('file_type', 'asc')}>
-              <FileIcon className="h-4 w-4 mr-2" />
-              File Type
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {uploads.length > 0 && (
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Your Files</h2>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center gap-1">
+                {sortField === 'file_name' && (
+                  <>
+                    <ArrowUpDown className="h-4 w-4" />
+                    Sort by Name
+                  </>
+                )}
+                {sortField === 'created_at' && (
+                  <>
+                    <Clock className="h-4 w-4" />
+                    Sort by Date
+                  </>
+                )}
+                {sortField === 'file_type' && (
+                  <>
+                    <FileIcon className="h-4 w-4" />
+                    Sort by Type
+                  </>
+                )}
+                {sortOrder === 'asc' ? (
+                  <ArrowUp className="h-4 w-4 ml-1" />
+                ) : (
+                  <ArrowDown className="h-4 w-4 ml-1" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleSortChange('file_name', 'asc')}>
+                <ArrowUp className="h-4 w-4 mr-2" />
+                Name (A-Z)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSortChange('file_name', 'desc')}>
+                <ArrowDown className="h-4 w-4 mr-2" />
+                Name (Z-A)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSortChange('created_at', 'desc')}>
+                <ArrowDown className="h-4 w-4 mr-2" />
+                Newest First
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSortChange('created_at', 'asc')}>
+                <ArrowUp className="h-4 w-4 mr-2" />
+                Oldest First
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSortChange('file_type', 'asc')}>
+                <FileIcon className="h-4 w-4 mr-2" />
+                File Type
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
 
       {uploads.length === 0 ? (
         <Card className="p-8 text-center">
@@ -316,7 +326,7 @@ export function FileUploadList() {
                                 {getFileIcon(selectedFile?.file_type || '')}
                                 <p className="text-lg font-medium">{selectedFile?.file_name}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {selectedFile?.file_type} • {(selectedFile?.file_size / 1024).toFixed(1)} KB
+                                  {selectedFile?.file_type} • {(selectedFile?.file_size ? (selectedFile.file_size / 1024).toFixed(1) : '0')} KB
                                 </p>
                                 <Button 
                                   onClick={() => selectedFile?.url && downloadFile(selectedFile.url, selectedFile.file_name)}

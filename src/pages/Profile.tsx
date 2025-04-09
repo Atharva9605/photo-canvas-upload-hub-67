@@ -5,7 +5,9 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, FileImage, Settings, Upload, User } from "lucide-react";
+import { Clock, Files, Settings, Upload, User } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { format } from "date-fns";
 
 interface UploadHistoryItem {
   id: string;
@@ -13,8 +15,8 @@ interface UploadHistoryItem {
   fileType: string;
   fileSize: string;
   uploadDate: string;
-  thumbnailUrl: string;
-  tags: string[];
+  url?: string;
+  tags?: string[];
 }
 
 const Profile = () => {
@@ -28,50 +30,50 @@ const Profile = () => {
   });
 
   useEffect(() => {
-    // Simulate fetching user data and upload history
-    setTimeout(() => {
-      const mockHistory: UploadHistoryItem[] = [
-        {
-          id: "1",
-          fileName: "business_document.jpg",
-          fileType: "image/jpeg",
-          fileSize: "2.4 MB",
-          uploadDate: "2025-04-07T14:32:10Z",
-          thumbnailUrl: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5",
-          tags: ["document", "text", "business"],
-        },
-        {
-          id: "2",
-          fileName: "vacation_photo.jpg",
-          fileType: "image/jpeg",
-          fileSize: "3.8 MB",
-          uploadDate: "2025-04-06T10:15:22Z",
-          thumbnailUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e",
-          tags: ["photo", "landscape", "beach"],
-        },
-        {
-          id: "3",
-          fileName: "sketch_design.png",
-          fileType: "image/png",
-          fileSize: "1.2 MB",
-          uploadDate: "2025-04-05T09:45:18Z",
-          thumbnailUrl: "https://images.unsplash.com/photo-1517971129774-8a2b38fa128e",
-          tags: ["drawing", "sketch", "design"],
-        },
-        {
-          id: "4",
-          fileName: "notes.jpg",
-          fileType: "image/jpeg",
-          fileSize: "0.9 MB",
-          uploadDate: "2025-04-04T16:20:33Z",
-          thumbnailUrl: "https://images.unsplash.com/photo-1517842645767-c639042777db",
-          tags: ["document", "notes", "text"],
-        },
-      ];
-      
-      setUploadHistory(mockHistory);
-      setIsLoading(false);
-    }, 1000);
+    // Fetch real upload history from Supabase
+    const fetchUploads = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('user_uploads')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        
+        const uploadsWithUrls = await Promise.all((data || []).map(async (upload) => {
+          // Try getting a public URL
+          const publicUrlData = supabase.storage
+            .from('user_files')
+            .getPublicUrl(upload.storage_path);
+            
+          // Fallback to signed URL if public URL is not available
+          const { data: signedUrlData } = await supabase.storage
+            .from('user_files')
+            .createSignedUrl(upload.storage_path, 60 * 60);
+            
+          const url = publicUrlData?.data?.publicUrl || signedUrlData?.signedUrl;
+          
+          return {
+            id: upload.id,
+            fileName: upload.file_name,
+            fileType: upload.file_type,
+            fileSize: `${(upload.file_size / (1024 * 1024)).toFixed(2)} MB`,
+            uploadDate: upload.created_at,
+            url: url || null,
+            tags: getTagsFromFileType(upload.file_type),
+          };
+        }));
+        
+        setUploadHistory(uploadsWithUrls as UploadHistoryItem[]);
+      } catch (error) {
+        console.error('Error fetching uploads:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUploads();
   }, []);
 
   const handlePreferenceChange = (key: string, value: any) => {
@@ -83,13 +85,31 @@ const Profile = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
+    return format(date, 'MMM d, yyyy HH:mm');
+  };
+
+  const getTagsFromFileType = (fileType: string) => {
+    if (fileType.startsWith('image/')) {
+      return ['image', fileType.split('/')[1]];
+    } else if (fileType === 'application/pdf') {
+      return ['document', 'pdf'];
+    } else if (fileType.includes('spreadsheet') || fileType.includes('excel')) {
+      return ['spreadsheet', 'data'];
+    } else {
+      return ['file', fileType.split('/')[1] || 'unknown'];
+    }
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) {
+      return "bg-blue-100 text-blue-600";
+    } else if (fileType === 'application/pdf') {
+      return "bg-red-100 text-red-600";
+    } else if (fileType.includes('spreadsheet') || fileType.includes('excel')) {
+      return "bg-green-100 text-green-600";
+    } else {
+      return "bg-gray-100 text-gray-600";
+    }
   };
 
   return (
@@ -105,8 +125,8 @@ const Profile = () => {
                   <User className="h-6 w-6" />
                 </div>
                 <div>
-                  <CardTitle>John Doe</CardTitle>
-                  <p className="text-sm text-muted-foreground">john.doe@example.com</p>
+                  <CardTitle>User Account</CardTitle>
+                  <p className="text-sm text-muted-foreground">Manage your account settings and uploads</p>
                 </div>
               </div>
               <Button variant="outline" asChild>
@@ -121,7 +141,7 @@ const Profile = () => {
           <Tabs defaultValue="uploads" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="uploads" className="flex items-center gap-2">
-                <FileImage className="h-4 w-4" />
+                <Files className="h-4 w-4" />
                 My Uploads
               </TabsTrigger>
               <TabsTrigger value="settings" className="flex items-center gap-2">
@@ -148,38 +168,49 @@ const Profile = () => {
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : uploadHistory.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {uploadHistory.map((item) => (
                     <Card key={item.id} className="overflow-hidden">
                       <div className="flex items-start p-4">
-                        <img 
-                          src={item.thumbnailUrl} 
-                          alt={item.fileName}
-                          className="h-16 w-16 rounded-md object-cover"
-                        />
+                        <div className={`flex h-16 w-16 items-center justify-center rounded-md ${getFileIcon(item.fileType)}`}>
+                          <Files className="h-8 w-8" />
+                        </div>
                         <div className="ml-4 flex-1">
                           <h3 className="font-medium">{item.fileName}</h3>
                           <div className="mt-1 text-sm text-gray-500">
                             <p className="flex items-center">
                               <Clock className="mr-1 h-3 w-3" />{formatDate(item.uploadDate)}
                             </p>
-                            <p>{item.fileSize} • {item.fileType.split('/')[1].toUpperCase()}</p>
+                            <p>{item.fileSize} • {item.fileType.split('/')[1]?.toUpperCase() || item.fileType}</p>
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {item.tags.map((tag, idx) => (
-                              <span 
-                                key={idx} 
-                                className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary-foreground"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
+                          {item.tags && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {item.tags.map((tag, idx) => (
+                                <span 
+                                  key={idx} 
+                                  className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary-foreground"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </Card>
                   ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed p-8 text-center">
+                  <Files className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                  <h3 className="mb-2 text-lg font-medium">No uploads yet</h3>
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    Start uploading files to see your history here
+                  </p>
+                  <Button asChild>
+                    <Link to="/upload">Upload Your First File</Link>
+                  </Button>
                 </div>
               )}
             </TabsContent>
@@ -199,10 +230,10 @@ const Profile = () => {
                         onChange={(e) => handlePreferenceChange("language", e.target.value)}
                       >
                         <option>English</option>
-                        <option>Spanish</option>
-                        <option>French</option>
-                        <option>German</option>
-                        <option>Chinese</option>
+                        <option>Hindi</option>
+                        <option>Marathi</option>
+                        <option>Bengali</option>
+                        <option>Tamil</option>
                       </select>
                     </div>
                     
