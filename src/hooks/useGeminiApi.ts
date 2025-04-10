@@ -54,29 +54,13 @@ export function useGeminiApi() {
     }
   };
 
-  // Function to create database if not exists
-  const createDatabase = async (dbConfig?: any) => {
+  // Function to process multiple files
+  const processFiles = async (files: File[]) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const result = await geminiApi.createDatabase(dbConfig);
-      setIsLoading(false);
-      return result;
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
-      setIsLoading(false);
-      throw err;
-    }
-  };
-
-  // Function to insert data into PostgreSQL
-  const insertDataIntoPostgres = async (data: any, tableName?: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const result = await geminiApi.insertDataIntoPostgres(data, tableName);
+      const result = await geminiApi.processFiles(files);
       setIsLoading(false);
       return result;
     } catch (err) {
@@ -92,7 +76,6 @@ export function useGeminiApi() {
     analyzeImage,
     extractDataFromImage,
     getAnalysisResults,
-    createDatabase,
-    insertDataIntoPostgres,
+    processFiles
   };
 }

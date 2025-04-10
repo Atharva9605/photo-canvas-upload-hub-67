@@ -1,8 +1,8 @@
 
 // API configuration values
 const config = {
-  // Base API URL - This should be set based on environment
-  GEMINI_API_URL: import.meta.env.VITE_GEMINI_API_URL || "https://gemini-govigyan-api.onrender.com",
+  // Base API URL from environment variable
+  GEMINI_API_URL: import.meta.env.VITE_API_BASE_URL || "https://gemini-govigyan.onrender.com",
   
   // Default timeout for API requests in milliseconds (30 seconds)
   API_TIMEOUT: 30000,
@@ -12,11 +12,9 @@ const config = {
   
   // Endpoints
   ENDPOINTS: {
-    ANALYZE_IMAGE: "/analyze-image",
+    ANALYZE_IMAGE: "/process",
     GET_ANALYSIS: "/get-analysis",
-    CREATE_DATABASE: "/create-database",
-    INSERT_DATA: "/insert-data",
-    EXTRACT_DATA: "/extract-data",
+    EXTRACT_DATA: "/process",
     // Add other endpoints as needed
   }
 };

@@ -25,7 +25,7 @@ import { toast } from "sonner";
 
 const Upload = () => {
   const [isDragging, setIsDragging] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -38,7 +38,7 @@ const Upload = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast: toastNotification } = useToast();
   const navigate = useNavigate();
-  const { analyzeImage, isLoading: isApiLoading } = useGeminiApi();
+  const { analyzeImage, processFiles, isLoading: isApiLoading } = useGeminiApi();
 
   const acceptedFileTypes = [
     "image/jpeg",
@@ -65,56 +65,55 @@ const Upload = () => {
     e.preventDefault();
     setIsDragging(false);
     
-    const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles.length > 0) {
-      validateAndSetFile(droppedFiles[0]);
-    }
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    validateAndSetFiles(droppedFiles);
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      validateAndSetFile(e.target.files[0]);
+      const fileArray = Array.from(e.target.files);
+      validateAndSetFiles(fileArray);
     }
   };
 
-  const validateAndSetFile = (file: File) => {
+  const validateAndSetFiles = (files: File[]) => {
     setUploadError(null);
     setAnalysisResults(null);
     
-    if (!acceptedFileTypes.includes(file.type)) {
-      setUploadError("Invalid file type. Please upload a JPG, PNG, GIF, WebP, PDF, or text file.");
-      toastNotification({
-        variant: "destructive",
-        title: "Invalid file type",
-        description: "Please upload a supported file type.",
-      });
+    const validFiles = files.filter(file => {
+      if (!acceptedFileTypes.includes(file.type)) {
+        toast.error(`Invalid file type: ${file.name}. Please upload a supported file type.`);
+        return false;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`File too large: ${file.name}. Please upload a file less than 10MB in size.`);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    if (validFiles.length === 0) {
       return;
     }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError("File too large. Please upload a file less than 10MB in size.");
-      toastNotification({
-        variant: "destructive",
-        title: "File too large",
-        description: "Please upload a file less than 10MB in size.",
-      });
-      return;
-    }
-
-    setFile(file);
-    if (file.type.startsWith('image/')) {
-      const previewUrl = URL.createObjectURL(file);
+    
+    setSelectedFiles(validFiles);
+    
+    // Set preview for the first image if it's an image
+    if (validFiles[0].type.startsWith('image/')) {
+      const previewUrl = URL.createObjectURL(validFiles[0]);
       setPreview(previewUrl);
     } else {
       setPreview(null);
     }
   };
 
-  const clearFile = () => {
+  const clearFiles = () => {
     if (preview) {
       URL.revokeObjectURL(preview);
     }
-    setFile(null);
+    setSelectedFiles([]);
     setPreview(null);
     setUploadError(null);
     if (fileInputRef.current) {
@@ -123,7 +122,7 @@ const Upload = () => {
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (selectedFiles.length === 0) return;
     
     setIsUploading(true);
     setUploadProgress(0);
@@ -141,8 +140,8 @@ const Upload = () => {
         });
       }, 300);
       
-      // Here we're directly using the Gemini API to analyze the image
-      const result = await analyzeImage(file);
+      // Process all selected files
+      const result = await processFiles(selectedFiles);
       
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -151,35 +150,37 @@ const Upload = () => {
         setAnalysisId(result.analysisId);
       }
       
+      setAnalysisResults(result);
+      
       setTimeout(() => {
         setIsUploading(false);
         toastNotification({
           title: "Upload successful",
-          description: "Your file has been uploaded and analyzed successfully.",
+          description: "Your files have been uploaded and analyzed successfully.",
         });
       }, 500);
       
     } catch (error) {
-      console.error("Error uploading file:", error);
-      setUploadError("Failed to upload the file. Please try again.");
+      console.error("Error uploading files:", error);
+      setUploadError("Failed to upload the files. Please try again.");
       toastNotification({
         variant: "destructive",
         title: "Upload failed",
-        description: "Could not upload the file. Please try again.",
+        description: "Could not upload the files. Please try again.",
       });
       setIsUploading(false);
     }
   };
 
   const handleAnalyzeImage = async () => {
-    if (!file || !file.type.startsWith('image/')) {
-      toast.error("Please upload an image to analyze");
+    if (selectedFiles.length === 0) {
+      toast.error("Please upload files to analyze");
       return;
     }
 
     try {
       setIsAnalyzing(true);
-      const result = await analyzeImage(file);
+      const result = await processFiles(selectedFiles);
       setAnalysisResults(result);
       
       // If we have an analysis ID, store it for navigation
@@ -187,10 +188,10 @@ const Upload = () => {
         setAnalysisId(result.analysisId);
       }
       
-      toast.success("Image analysis completed");
+      toast.success("Analysis completed successfully");
     } catch (error) {
-      console.error("Error analyzing image:", error);
-      toast.error("Failed to analyze image. Please try again.");
+      console.error("Error analyzing files:", error);
+      toast.error("Failed to analyze files. Please try again.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -273,12 +274,12 @@ const Upload = () => {
           
           <Tabs defaultValue="upload" className="mb-8" value={currentTab} onValueChange={setCurrentTab}>
             <TabsList className="mb-4 grid w-full grid-cols-2">
-              <TabsTrigger value="upload">Upload File</TabsTrigger>
+              <TabsTrigger value="upload">Upload Files</TabsTrigger>
               <TabsTrigger value="files">My Files</TabsTrigger>
             </TabsList>
             
             <TabsContent value="upload">
-              {!preview && !file ? (
+              {selectedFiles.length === 0 ? (
                 <div 
                   className={`relative mb-6 flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/40 p-6 transition-colors hover:bg-muted/70 ${
                     isDragging ? "border-primary bg-primary/5" : ""
@@ -294,12 +295,13 @@ const Upload = () => {
                     className="hidden"
                     accept={acceptedFileTypes.join(",")}
                     onChange={handleFileChange}
+                    multiple
                   />
                   
                   <div className="text-center">
                     <UploadIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                     <p className="mb-2 text-lg font-medium">
-                      Drag & drop your file here
+                      Drag & drop your files here
                     </p>
                     <p className="mb-4 text-sm text-muted-foreground">
                       or click to browse files
@@ -311,7 +313,7 @@ const Upload = () => {
                 </div>
               ) : (
                 <div className="mb-6">
-                  {file?.type.startsWith('image/') ? (
+                  {selectedFiles[0]?.type.startsWith('image/') && preview ? (
                     <div className="relative min-h-[300px] overflow-hidden rounded-lg border bg-card shadow-sm">
                       <img
                         src={preview}
@@ -324,7 +326,7 @@ const Upload = () => {
                           className="absolute right-2 top-2 rounded-full bg-gray-800 p-1 text-white opacity-70 hover:opacity-100"
                           onClick={(e) => {
                             e.stopPropagation();
-                            clearFile();
+                            clearFiles();
                           }}
                         >
                           <X className="h-5 w-5" />
@@ -335,17 +337,17 @@ const Upload = () => {
                     <Card className="relative min-h-[200px] flex items-center justify-center">
                       <CardContent className="p-6 text-center">
                         <div className="mb-4 flex justify-center">
-                          {file?.type === 'application/pdf' ? (
+                          {selectedFiles[0]?.type === 'application/pdf' ? (
                             <FileText className="h-16 w-16 text-red-500" />
-                          ) : file?.type.includes('spreadsheet') || file?.type.includes('excel') ? (
+                          ) : selectedFiles[0]?.type.includes('spreadsheet') || selectedFiles[0]?.type.includes('excel') ? (
                             <FileCog className="h-16 w-16 text-green-500" />
                           ) : (
                             <FileText className="h-16 w-16 text-blue-500" />
                           )}
                         </div>
-                        <h3 className="text-xl font-semibold mb-2">{file?.name}</h3>
+                        <h3 className="text-xl font-semibold mb-2">{selectedFiles.length} file(s) selected</h3>
                         <p className="text-sm text-muted-foreground mb-2">
-                          {(file?.size ? (file.size / 1024 / 1024).toFixed(2) : '0')} MB • {file?.type}
+                          {(selectedFiles[0]?.size ? (selectedFiles[0].size / 1024 / 1024).toFixed(2) : '0')} MB • {selectedFiles[0]?.type}
                         </p>
                         
                         {!isUploading && (
@@ -354,7 +356,7 @@ const Upload = () => {
                             className="absolute right-2 top-2 rounded-full bg-gray-200 p-1 text-gray-700 opacity-70 hover:opacity-100"
                             onClick={(e) => {
                               e.stopPropagation();
-                              clearFile();
+                              clearFiles();
                             }}
                           >
                             <X className="h-5 w-5" />
@@ -372,37 +374,41 @@ const Upload = () => {
                 </div>
               )}
               
-              {file && (
+              {selectedFiles.length > 0 && (
                 <Card className="mb-6 overflow-hidden">
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-700/20 dark:text-brand-300">
-                        {file.type.startsWith('image/') ? (
-                          <ImageIcon className="h-5 w-5" />
-                        ) : file.type === 'application/pdf' ? (
-                          <FileText className="h-5 w-5" />
-                        ) : file.type.includes('spreadsheet') || file.type.includes('excel') ? (
-                          <FileCog className="h-5 w-5" />
-                        ) : (
-                          <FileText className="h-5 w-5" />
-                        )}
+                    <h3 className="font-medium mb-4">Selected Files ({selectedFiles.length})</h3>
+                    
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center gap-3 mb-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-700/20 dark:text-brand-300">
+                          {file.type.startsWith('image/') ? (
+                            <ImageIcon className="h-5 w-5" />
+                          ) : file.type === 'application/pdf' ? (
+                            <FileText className="h-5 w-5" />
+                          ) : file.type.includes('spreadsheet') || file.type.includes('excel') ? (
+                            <FileCog className="h-5 w-5" />
+                          ) : (
+                            <FileText className="h-5 w-5" />
+                          )}
+                        </div>
+                        <div className="flex-1 truncate">
+                          <p className="font-medium">{file.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                        <div>
+                          {isUploading ? (
+                            <div className="text-right text-sm font-medium text-brand-600">
+                              {uploadProgress}%
+                            </div>
+                          ) : (
+                            <FileCheck className="h-5 w-5 text-green-500" />
+                          )}
+                        </div>
                       </div>
-                      <div className="flex-1 truncate">
-                        <p className="font-medium">{file.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                      <div>
-                        {isUploading ? (
-                          <div className="text-right text-sm font-medium text-brand-600">
-                            {uploadProgress}%
-                          </div>
-                        ) : (
-                          <FileCheck className="h-5 w-5 text-green-500" />
-                        )}
-                      </div>
-                    </div>
+                    ))}
                     
                     {isUploading && (
                       <div className="mt-3">
@@ -439,13 +445,13 @@ const Upload = () => {
               <div className="flex justify-center gap-3">
                 <Button
                   onClick={handleUpload}
-                  disabled={!file || isUploading}
+                  disabled={selectedFiles.length === 0 || isUploading}
                   className="min-w-[200px]"
                 >
-                  {isUploading ? "Uploading..." : "Upload File"}
+                  {isUploading ? "Uploading..." : "Process Files"}
                 </Button>
                 
-                {file && file.type.startsWith('image/') && !isAnalyzing && (
+                {selectedFiles.length > 0 && !isAnalyzing && (
                   <Button
                     onClick={handleAnalyzeImage}
                     disabled={isUploading || isAnalyzing || isApiLoading}

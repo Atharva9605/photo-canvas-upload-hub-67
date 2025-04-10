@@ -89,14 +89,22 @@ export const geminiApi = {
   extractDataFromImage: (file: File) => 
     uploadFile<any>(config.ENDPOINTS.EXTRACT_DATA, file),
   
-  // Create database if not exists
-  createDatabase: (dbConfig?: any) =>
-    postData<any>(config.ENDPOINTS.CREATE_DATABASE, dbConfig || {}),
-    
-  // Insert data into postgres
-  insertDataIntoPostgres: (data: any, tableName?: string) =>
-    postData<any>(config.ENDPOINTS.INSERT_DATA, {
-      data,
-      tableName: tableName || 'StockBook'
-    }),
+  // Process multiple files
+  processFiles: async (files: File[]) => {
+    try {
+      const formData = new FormData();
+      files.forEach(file => formData.append('file', file));
+      
+      const response = await apiClient.post<any>(config.ENDPOINTS.EXTRACT_DATA, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Error processing multiple files:`, error);
+      throw error;
+    }
+  }
 };
