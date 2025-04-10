@@ -106,5 +106,30 @@ export const geminiApi = {
       console.error(`Error processing multiple files:`, error);
       throw error;
     }
+  },
+
+  // Create database for PostgreSQL
+  createDatabase: async () => {
+    try {
+      const response = await apiClient.post<any>('/create-database', {});
+      return response.data;
+    } catch (error) {
+      console.error('Error creating database:', error);
+      throw error;
+    }
+  },
+
+  // Insert data into PostgreSQL
+  insertDataIntoPostgres: async (data: any, tableName: string) => {
+    try {
+      const response = await apiClient.post<any>('/insert-data', {
+        data,
+        tableName
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error inserting data into PostgreSQL:', error);
+      throw error;
+    }
   }
 };

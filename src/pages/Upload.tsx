@@ -1,4 +1,3 @@
-
 import { useState, useRef, DragEvent, ChangeEvent } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -217,7 +216,7 @@ const Upload = () => {
         handleAnalyzeImage();
         break;
       case "clear":
-        clearFile();
+        clearFiles(); // Fixed: Changed from clearFile to clearFiles
         break;
       case "cancel":
         if (isUploading) {
@@ -240,7 +239,7 @@ const Upload = () => {
     
     const a = document.createElement('a');
     a.href = preview;
-    a.download = file?.name || 'image.png';
+    a.download = selectedFiles[0]?.name || 'image.png'; // Fixed: Changed from file to selectedFiles[0]
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

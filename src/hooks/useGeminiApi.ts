@@ -70,12 +70,46 @@ export function useGeminiApi() {
     }
   };
 
+  // Function to create database
+  const createDatabase = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await geminiApi.createDatabase();
+      setIsLoading(false);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
+      setIsLoading(false);
+      throw err;
+    }
+  };
+
+  // Function to insert data into PostgreSQL
+  const insertDataIntoPostgres = async (data: any, tableName: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await geminiApi.insertDataIntoPostgres(data, tableName);
+      setIsLoading(false);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
+      setIsLoading(false);
+      throw err;
+    }
+  };
+
   return {
     isLoading,
     error,
     analyzeImage,
     extractDataFromImage,
     getAnalysisResults,
-    processFiles
+    processFiles,
+    createDatabase,
+    insertDataIntoPostgres
   };
 }

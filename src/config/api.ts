@@ -15,6 +15,8 @@ const config = {
     ANALYZE_IMAGE: "/process",
     GET_ANALYSIS: "/get-analysis",
     EXTRACT_DATA: "/process",
+    CREATE_DATABASE: "/create-database",
+    INSERT_DATA: "/insert-data"
     // Add other endpoints as needed
   }
 };
