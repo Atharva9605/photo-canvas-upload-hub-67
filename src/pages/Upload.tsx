@@ -1,3 +1,4 @@
+
 import { useState, useRef, DragEvent, ChangeEvent } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import VoiceUpload from "@/components/VoiceUpload";
 import { FileUploadList } from "@/components/FileUploadList";
-import { supabase } from "@/lib/supabase";
 import { 
   Upload as UploadIcon, 
   X,
@@ -33,6 +33,7 @@ const Upload = () => {
   const [currentTab, setCurrentTab] = useState("upload");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast: toastNotification } = useToast();
@@ -129,10 +130,7 @@ const Upload = () => {
     setUploadError(null);
     
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-      const filePath = `uploads/${fileName}`;
-      
+      // Simulate upload progress
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           const newProgress = prev + 10;
@@ -143,31 +141,21 @@ const Upload = () => {
         });
       }, 300);
       
-      const { error: uploadError } = await supabase.storage
-        .from('user_files')
-        .upload(filePath, file);
-      
-      if (uploadError) throw uploadError;
-      
-      const { error: dbError } = await supabase
-        .from('user_uploads')
-        .insert({
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          storage_path: filePath
-        });
-      
-      if (dbError) throw dbError;
+      // Here we're directly using the Gemini API to analyze the image
+      const result = await analyzeImage(file);
       
       clearInterval(progressInterval);
       setUploadProgress(100);
+      
+      if (result && result.analysisId) {
+        setAnalysisId(result.analysisId);
+      }
       
       setTimeout(() => {
         setIsUploading(false);
         toastNotification({
           title: "Upload successful",
-          description: "Your file has been uploaded successfully.",
+          description: "Your file has been uploaded and analyzed successfully.",
         });
       }, 500);
       
@@ -193,12 +181,26 @@ const Upload = () => {
       setIsAnalyzing(true);
       const result = await analyzeImage(file);
       setAnalysisResults(result);
+      
+      // If we have an analysis ID, store it for navigation
+      if (result && result.analysisId) {
+        setAnalysisId(result.analysisId);
+      }
+      
       toast.success("Image analysis completed");
     } catch (error) {
       console.error("Error analyzing image:", error);
       toast.error("Failed to analyze image. Please try again.");
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const viewAnalysisDetails = () => {
+    if (analysisId) {
+      navigate(`/analysis/${analysisId}`);
+    } else {
+      toast.error("No analysis ID available");
     }
   };
 
@@ -420,6 +422,16 @@ const Upload = () => {
                         {JSON.stringify(analysisResults, null, 2)}
                       </pre>
                     </div>
+                    {analysisId && (
+                      <div className="mt-4 flex justify-end">
+                        <Button 
+                          onClick={viewAnalysisDetails}
+                          size="sm"
+                        >
+                          View Full Analysis
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}

@@ -22,6 +22,22 @@ export function useGeminiApi() {
     }
   };
 
+  // Function to extract data from an image
+  const extractDataFromImage = async (file: File) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await geminiApi.extractDataFromImage(file);
+      setIsLoading(false);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
+      setIsLoading(false);
+      throw err;
+    }
+  };
+
   // Function to fetch analysis results
   const getAnalysisResults = async (analysisId: string) => {
     setIsLoading(true);
@@ -74,9 +90,9 @@ export function useGeminiApi() {
     isLoading,
     error,
     analyzeImage,
+    extractDataFromImage,
     getAnalysisResults,
     createDatabase,
     insertDataIntoPostgres,
-    // Add more methods as needed
   };
 }

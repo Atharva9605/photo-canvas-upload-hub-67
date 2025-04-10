@@ -12,21 +12,6 @@ const apiClient = axios.create({
   timeout: config.API_TIMEOUT,
 });
 
-// Add request interceptor for authentication if needed
-apiClient.interceptors.request.use(
-  (config) => {
-    // You can add auth token here if required
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
 // Add response interceptor for handling errors
 apiClient.interceptors.response.use(
   (response) => response,
@@ -100,27 +85,18 @@ export const geminiApi = {
   getAnalysisResults: (analysisId: string) => 
     fetchData<any>(`${config.ENDPOINTS.GET_ANALYSIS}/${analysisId}`),
   
+  // Extract data from an image
+  extractDataFromImage: (file: File) => 
+    uploadFile<any>(config.ENDPOINTS.EXTRACT_DATA, file),
+  
   // Create database if not exists
   createDatabase: (dbConfig?: any) =>
-    postData<any>(config.ENDPOINTS.CREATE_DATABASE, dbConfig || {
-      host: config.PG_HOST,
-      port: config.PG_PORT,
-      database: config.PG_DATABASE,
-      user: config.PG_USER,
-    }),
+    postData<any>(config.ENDPOINTS.CREATE_DATABASE, dbConfig || {}),
     
   // Insert data into postgres
   insertDataIntoPostgres: (data: any, tableName?: string) =>
     postData<any>(config.ENDPOINTS.INSERT_DATA, {
       data,
-      tableName: tableName || 'StockBook',
-      dbConfig: {
-        host: config.PG_HOST,
-        port: config.PG_PORT,
-        database: config.PG_DATABASE,
-        user: config.PG_USER,
-      }
+      tableName: tableName || 'StockBook'
     }),
-  
-  // Add more endpoint methods as needed based on the Gemini API
 };
