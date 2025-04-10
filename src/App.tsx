@@ -21,6 +21,7 @@ import Index from "./pages/Index";
 import Spreadsheets from "./pages/Spreadsheets";
 import AnalysisResults from "./pages/AnalysisResults";
 import DownloadCSV from "./pages/DownloadCSV";
+import CSVDisplay from "./pages/CSVDisplay";
 
 const queryClient = new QueryClient();
 
@@ -119,6 +120,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <DownloadCSV />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/csv-display" 
+              element={
+                <ProtectedRoute>
+                  <CSVDisplay />
                 </ProtectedRoute>
               } 
             />

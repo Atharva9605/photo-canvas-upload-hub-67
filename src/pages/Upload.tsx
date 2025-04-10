@@ -1,54 +1,60 @@
-import { useState, useRef, DragEvent, ChangeEvent } from "react";
-import Layout from "@/components/Layout";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
-import VoiceUpload from "@/components/VoiceUpload";
-import { FileUploadList } from "@/components/FileUploadList";
-import { 
-  Upload as UploadIcon, 
-  X,
-  Image as ImageIcon, 
-  FileCheck, 
-  FileText, 
-  Download,
-  Files,
-  FileCog,
-  Brain
-} from "lucide-react";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import { useState, useRef, ChangeEvent, DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import Layout from "@/components/Layout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import VoiceUpload from "@/components/VoiceUpload";
 import { useGeminiApi } from "@/hooks/useGeminiApi";
 import { toast } from "sonner";
+import { 
+  Upload as UploadIcon, 
+  ArrowRight, 
+  Image as ImageIcon, 
+  FileX,
+  AlertTriangle,
+  Check,
+  X
+} from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { v4 as uuidv4 } from "uuid";
 
 const Upload = () => {
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [preview, setPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [currentTab, setCurrentTab] = useState("upload");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResults, setAnalysisResults] = useState<any>(null);
-  const [analysisId, setAnalysisId] = useState<string | null>(null);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast: toastNotification } = useToast();
+  const { isLoading, error, analyzeImage } = useGeminiApi();
   const navigate = useNavigate();
-  const { analyzeImage, processFiles, isLoading: isApiLoading } = useGeminiApi();
 
-  const acceptedFileTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "application/pdf",
-    "text/plain",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-excel",
-  ];
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      
+      // Reset states
+      setFile(selectedFile);
+      setUploadSuccess(false);
+      setUploadError(null);
+      
+      // Preview for images
+      if (selectedFile.type.startsWith('image/')) {
+        const objectUrl = URL.createObjectURL(selectedFile);
+        setPreviewUrl(objectUrl);
+        
+        // Clean up the URL when component unmounts
+        return () => URL.revokeObjectURL(objectUrl);
+      } else {
+        setPreviewUrl(null);
+      }
+    }
+  };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -64,428 +70,299 @@ const Upload = () => {
     e.preventDefault();
     setIsDragging(false);
     
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    validateAndSetFiles(droppedFiles);
-  };
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const fileArray = Array.from(e.target.files);
-      validateAndSetFiles(fileArray);
-    }
-  };
-
-  const validateAndSetFiles = (files: File[]) => {
-    setUploadError(null);
-    setAnalysisResults(null);
-    
-    const validFiles = files.filter(file => {
-      if (!acceptedFileTypes.includes(file.type)) {
-        toast.error(`Invalid file type: ${file.name}. Please upload a supported file type.`);
-        return false;
-      }
-
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`File too large: ${file.name}. Please upload a file less than 10MB in size.`);
-        return false;
-      }
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const droppedFile = e.dataTransfer.files[0];
       
-      return true;
-    });
-    
-    if (validFiles.length === 0) {
-      return;
-    }
-    
-    setSelectedFiles(validFiles);
-    
-    // Set preview for the first image if it's an image
-    if (validFiles[0].type.startsWith('image/')) {
-      const previewUrl = URL.createObjectURL(validFiles[0]);
-      setPreview(previewUrl);
-    } else {
-      setPreview(null);
+      // Reset states
+      setFile(droppedFile);
+      setUploadSuccess(false);
+      setUploadError(null);
+      
+      // Preview for images
+      if (droppedFile.type.startsWith('image/')) {
+        const objectUrl = URL.createObjectURL(droppedFile);
+        setPreviewUrl(objectUrl);
+      } else {
+        setPreviewUrl(null);
+      }
     }
   };
 
-  const clearFiles = () => {
-    if (preview) {
-      URL.revokeObjectURL(preview);
-    }
-    setSelectedFiles([]);
-    setPreview(null);
+  const handleClearFile = () => {
+    setFile(null);
+    setPreviewUrl(null);
+    setUploadSuccess(false);
     setUploadError(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCommand = (command: string) => {
+    if (command === "select" || command === "upload") {
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
+    } else if (command === "clear") {
+      handleClearFile();
+    } else if (command === "analyze" && file) {
+      handleUpload();
     }
   };
 
   const handleUpload = async () => {
-    if (selectedFiles.length === 0) return;
-    
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadError(null);
-    
-    try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          const newProgress = prev + 10;
-          if (newProgress >= 90) {
-            clearInterval(progressInterval);
-          }
-          return Math.min(newProgress, 90);
-        });
-      }, 300);
-      
-      // Process all selected files
-      const result = await processFiles(selectedFiles);
-      
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-      
-      if (result && result.analysisId) {
-        setAnalysisId(result.analysisId);
-      }
-      
-      setAnalysisResults(result);
-      
-      setTimeout(() => {
-        setIsUploading(false);
-        toastNotification({
-          title: "Upload successful",
-          description: "Your files have been uploaded and analyzed successfully.",
-        });
-      }, 500);
-      
-    } catch (error) {
-      console.error("Error uploading files:", error);
-      setUploadError("Failed to upload the files. Please try again.");
-      toastNotification({
-        variant: "destructive",
-        title: "Upload failed",
-        description: "Could not upload the files. Please try again.",
-      });
-      setIsUploading(false);
-    }
-  };
-
-  const handleAnalyzeImage = async () => {
-    if (selectedFiles.length === 0) {
-      toast.error("Please upload files to analyze");
+    if (!file) {
+      toast.error("Please select a file to upload");
       return;
     }
+    
+    setIsUploading(true);
+    setUploadSuccess(false);
+    setUploadError(null);
 
     try {
-      setIsAnalyzing(true);
-      const result = await processFiles(selectedFiles);
-      setAnalysisResults(result);
+      // First, upload the file to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
       
-      // If we have an analysis ID, store it for navigation
-      if (result && result.analysisId) {
-        setAnalysisId(result.analysisId);
-      }
+      const { error: uploadError } = await supabase.storage
+        .from('user_files')
+        .upload(filePath, file);
       
-      toast.success("Analysis completed successfully");
-    } catch (error) {
-      console.error("Error analyzing files:", error);
-      toast.error("Failed to analyze files. Please try again.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const viewAnalysisDetails = () => {
-    if (analysisId) {
-      navigate(`/analysis/${analysisId}`);
-    } else {
-      toast.error("No analysis ID available");
-    }
-  };
-
-  const handleVoiceCommand = (command: string) => {
-    switch (command) {
-      case "select":
-        fileInputRef.current?.click();
-        break;
-      case "upload":
-        handleUpload();
-        break;
-      case "analyze":
-        handleAnalyzeImage();
-        break;
-      case "clear":
-        clearFiles(); // Fixed: Changed from clearFile to clearFiles
-        break;
-      case "cancel":
-        if (isUploading) {
-          setIsUploading(false);
-          toastNotification({
-            title: "Cancelled",
-            description: "The upload has been cancelled.",
-          });
-        }
-        break;
-      default:
-        toastNotification({
-          description: `Command not recognized: ${command}`,
+      if (uploadError) throw uploadError;
+      
+      // Record the upload in the database
+      const { error: dbError } = await supabase
+        .from('user_uploads')
+        .insert({
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          storage_path: filePath
         });
+      
+      if (dbError) throw dbError;
+      
+      // Now, analyze the image with Gemini API
+      const results = await analyzeImage(file);
+      console.log("Analysis results:", results);
+      
+      setUploadSuccess(true);
+      toast.success("File successfully uploaded and analyzed");
+      
+      // Navigate to the CSV display page with the result data
+      navigate('/csv-display', { state: { data: results.extractedData || results } });
+      
+    } catch (err) {
+      console.error("Upload error:", err);
+      setUploadError(err instanceof Error ? err.message : "An unknown error occurred");
+      toast.error("Failed to upload and analyze file");
+    } finally {
+      setIsUploading(false);
     }
-  };
-
-  const downloadImage = () => {
-    if (!preview) return;
-    
-    const a = document.createElement('a');
-    a.href = preview;
-    a.download = selectedFiles[0]?.name || 'image.png'; // Fixed: Changed from file to selectedFiles[0]
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
   };
 
   return (
     <Layout>
       <div className="container mx-auto py-8">
-        <h1 className="mb-6 text-center text-3xl font-bold">Upload Files</h1>
+        <h1 className="mb-6 text-3xl font-bold">Upload Files</h1>
         
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <VoiceUpload onCommand={handleVoiceCommand} />
-              <p className="text-sm text-muted-foreground">Use voice commands to control uploads</p>
-            </div>
-            {preview && (
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center gap-1"
-                  onClick={downloadImage}
-                >
-                  <Download className="h-4 w-4" />
-                  Download
-                </Button>
-              </div>
-            )}
-          </div>
-          
-          <Tabs defaultValue="upload" className="mb-8" value={currentTab} onValueChange={setCurrentTab}>
-            <TabsList className="mb-4 grid w-full grid-cols-2">
-              <TabsTrigger value="upload">Upload Files</TabsTrigger>
-              <TabsTrigger value="files">My Files</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="upload">
-              {selectedFiles.length === 0 ? (
-                <div 
-                  className={`relative mb-6 flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/40 p-6 transition-colors hover:bg-muted/70 ${
-                    isDragging ? "border-primary bg-primary/5" : ""
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept={acceptedFileTypes.join(",")}
-                    onChange={handleFileChange}
-                    multiple
-                  />
-                  
-                  <div className="text-center">
-                    <UploadIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                    <p className="mb-2 text-lg font-medium">
-                      Drag & drop your files here
-                    </p>
-                    <p className="mb-4 text-sm text-muted-foreground">
-                      or click to browse files
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Supported formats: JPG, PNG, GIF, WebP, PDF, TXT, XLS, XLSX (max 10MB)
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="mb-6">
-                  {selectedFiles[0]?.type.startsWith('image/') && preview ? (
-                    <div className="relative min-h-[300px] overflow-hidden rounded-lg border bg-card shadow-sm">
-                      <img
-                        src={preview}
-                        alt="Preview"
-                        className="mx-auto max-h-[400px] max-w-full object-contain"
-                      />
-                      {!isUploading && (
-                        <button
-                          type="button"
-                          className="absolute right-2 top-2 rounded-full bg-gray-800 p-1 text-white opacity-70 hover:opacity-100"
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UploadIcon className="h-5 w-5" />
+                Upload File
+              </CardTitle>
+              <CardDescription>
+                Upload images or documents for analysis using Gemini AI
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
+                  isDragging ? 'border-brand-500 bg-brand-50' : 'border-muted hover:bg-muted/50'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileChange}
+                  accept="image/*,application/pdf,text/csv"
+                />
+                <div className="flex flex-col items-center justify-center text-center">
+                  {file ? (
+                    <>
+                      <div className="relative mb-4 overflow-hidden rounded-lg">
+                        {previewUrl ? (
+                          <img 
+                            src={previewUrl} 
+                            alt="File preview" 
+                            className="h-36 w-auto object-cover" 
+                          />
+                        ) : (
+                          <div className="flex h-36 w-36 items-center justify-center bg-muted text-muted-foreground">
+                            <FileIcon type={file.type} size={48} />
+                          </div>
+                        )}
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute right-2 top-2 h-6 w-6 rounded-full"
                           onClick={(e) => {
                             e.stopPropagation();
-                            clearFiles();
+                            handleClearFile();
                           }}
                         >
-                          <X className="h-5 w-5" />
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <Card className="relative min-h-[200px] flex items-center justify-center">
-                      <CardContent className="p-6 text-center">
-                        <div className="mb-4 flex justify-center">
-                          {selectedFiles[0]?.type === 'application/pdf' ? (
-                            <FileText className="h-16 w-16 text-red-500" />
-                          ) : selectedFiles[0]?.type.includes('spreadsheet') || selectedFiles[0]?.type.includes('excel') ? (
-                            <FileCog className="h-16 w-16 text-green-500" />
-                          ) : (
-                            <FileText className="h-16 w-16 text-blue-500" />
-                          )}
-                        </div>
-                        <h3 className="text-xl font-semibold mb-2">{selectedFiles.length} file(s) selected</h3>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {(selectedFiles[0]?.size ? (selectedFiles[0].size / 1024 / 1024).toFixed(2) : '0')} MB • {selectedFiles[0]?.type}
-                        </p>
-                        
-                        {!isUploading && (
-                          <button
-                            type="button"
-                            className="absolute right-2 top-2 rounded-full bg-gray-200 p-1 text-gray-700 opacity-70 hover:opacity-100"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              clearFiles();
-                            }}
-                          >
-                            <X className="h-5 w-5" />
-                          </button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              )}
-              
-              {uploadError && (
-                <div className="mb-6 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                  {uploadError}
-                </div>
-              )}
-              
-              {selectedFiles.length > 0 && (
-                <Card className="mb-6 overflow-hidden">
-                  <CardContent className="p-4">
-                    <h3 className="font-medium mb-4">Selected Files ({selectedFiles.length})</h3>
-                    
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center gap-3 mb-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-700/20 dark:text-brand-300">
-                          {file.type.startsWith('image/') ? (
-                            <ImageIcon className="h-5 w-5" />
-                          ) : file.type === 'application/pdf' ? (
-                            <FileText className="h-5 w-5" />
-                          ) : file.type.includes('spreadsheet') || file.type.includes('excel') ? (
-                            <FileCog className="h-5 w-5" />
-                          ) : (
-                            <FileText className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div className="flex-1 truncate">
-                          <p className="font-medium">{file.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                        <div>
-                          {isUploading ? (
-                            <div className="text-right text-sm font-medium text-brand-600">
-                              {uploadProgress}%
-                            </div>
-                          ) : (
-                            <FileCheck className="h-5 w-5 text-green-500" />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {isUploading && (
-                      <div className="mt-3">
-                        <Progress value={uploadProgress} className="h-2" />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-              
-              {analysisResults && (
-                <Card className="mb-6">
-                  <CardContent className="p-4">
-                    <h3 className="text-lg font-semibold mb-2">Analysis Results</h3>
-                    <div className="bg-muted p-3 rounded-md">
-                      <pre className="text-sm whitespace-pre-wrap">
-                        {JSON.stringify(analysisResults, null, 2)}
-                      </pre>
-                    </div>
-                    {analysisId && (
-                      <div className="mt-4 flex justify-end">
-                        <Button 
-                          onClick={viewAnalysisDetails}
-                          size="sm"
-                        >
-                          View Full Analysis
+                          <X className="h-3 w-3" />
                         </Button>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                      <p className="text-sm font-medium">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(file.size / 1024).toFixed(1)} KB
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="mb-2 h-10 w-10 text-muted-foreground" />
+                      <h3 className="mb-1 text-lg font-semibold">Drag & drop or click to upload</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Support images, PDF files, and CSV spreadsheets
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
               
-              <div className="flex justify-center gap-3">
-                <Button
-                  onClick={handleUpload}
-                  disabled={selectedFiles.length === 0 || isUploading}
-                  className="min-w-[200px]"
-                >
-                  {isUploading ? "Uploading..." : "Process Files"}
-                </Button>
+              <div className="mt-4 flex flex-col space-y-3">
+                {uploadError && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Upload failed</AlertTitle>
+                    <AlertDescription>{uploadError}</AlertDescription>
+                  </Alert>
+                )}
                 
-                {selectedFiles.length > 0 && !isAnalyzing && (
-                  <Button
-                    onClick={handleAnalyzeImage}
-                    disabled={isUploading || isAnalyzing || isApiLoading}
-                    variant="outline"
-                    className="min-w-[200px]"
+                {uploadSuccess && (
+                  <Alert variant="default" className="border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
+                    <Check className="h-4 w-4" />
+                    <AlertTitle>Success</AlertTitle>
+                    <AlertDescription>File uploaded and analyzed successfully</AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="flex items-center gap-2">
+                  <Button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUpload();
+                    }}
+                    className="w-full"
+                    disabled={!file || isUploading || isLoading}
                   >
-                    <Brain className="mr-2 h-4 w-4" />
-                    Analyze with Gemini
+                    {isUploading || isLoading ? (
+                      <span className="flex items-center gap-1">
+                        <LoadingSpinner />
+                        Processing...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <ArrowRight className="h-4 w-4" />
+                        Upload & Analyze
+                      </span>
+                    )}
                   </Button>
-                )}
-                
-                {isAnalyzing && (
-                  <Button disabled className="min-w-[200px]">
-                    <span className="h-4 w-4 animate-spin mr-2 border-2 border-current border-t-transparent rounded-full" />
-                    Analyzing...
-                  </Button>
-                )}
+                  <VoiceUpload onCommand={handleCommand} />
+                </div>
               </div>
-            </TabsContent>
-            
-            <TabsContent value="files">
-              <div className="mb-4 flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Recent Files</h2>
-                <Button onClick={() => navigate("/all-files")} variant="outline" size="sm" className="flex items-center gap-1">
-                  <Files className="h-4 w-4" />
-                  View All Files
-                </Button>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>File Processing</CardTitle>
+              <CardDescription>
+                How your files are processed and analyzed
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h3 className="mb-2 text-lg font-medium">Supported Files</h3>
+                <ul className="ml-6 list-disc space-y-1 text-muted-foreground">
+                  <li>Images (.jpg, .png, .webp)</li>
+                  <li>Documents (.pdf)</li>
+                  <li>Spreadsheets (.csv)</li>
+                </ul>
               </div>
-              <FileUploadList />
-            </TabsContent>
-          </Tabs>
+              
+              <Separator />
+              
+              <div>
+                <h3 className="mb-2 text-lg font-medium">Process</h3>
+                <ol className="ml-6 list-decimal space-y-2 text-muted-foreground">
+                  <li>Upload your file securely to our storage</li>
+                  <li>Gemini AI analyzes the content</li>
+                  <li>Results are displayed as CSV data for easy use</li>
+                  <li>Download your data for offline access</li>
+                </ol>
+              </div>
+              
+              <Separator />
+              
+              <div>
+                <h3 className="mb-2 text-lg font-medium">Privacy & Security</h3>
+                <p className="text-muted-foreground">
+                  Files are securely stored and only accessible to you. 
+                  Processing happens on our secure servers.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </Layout>
   );
 };
+
+// Helper component for file icons
+const FileIcon = ({ type, size = 24 }: { type: string; size?: number }) => {
+  if (type.startsWith('image/')) {
+    return <ImageIcon style={{ width: size, height: size }} className="text-blue-500" />;
+  } else if (type === 'application/pdf') {
+    return <FileX style={{ width: size, height: size }} className="text-red-500" />;
+  } else {
+    return <FileX style={{ width: size, height: size }} className="text-gray-500" />;
+  }
+};
+
+// Loading spinner component
+const LoadingSpinner = () => (
+  <svg
+    className="h-4 w-4 animate-spin"
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <circle
+      className="opacity-25"
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      strokeWidth="4"
+    ></circle>
+    <path
+      className="opacity-75"
+      fill="currentColor"
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    ></path>
+  </svg>
+);
 
 export default Upload;
