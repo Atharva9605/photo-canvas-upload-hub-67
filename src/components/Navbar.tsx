@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -86,6 +85,11 @@ const Navbar = () => {
                 <span className="hidden sm:inline">Profile</span>
               </Link>
             </Button>
+            
+            <Link to="/saved-csvs" className="flex items-center gap-2">
+              <FileSpreadsheet className="h-4 w-4" />
+              <span>Saved CSVs</span>
+            </Link>
           </div>
         )}
         

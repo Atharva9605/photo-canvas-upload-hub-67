@@ -16,7 +16,8 @@ const config = {
     GET_ANALYSIS: "/get-analysis",
     EXTRACT_DATA: "/process",
     CREATE_DATABASE: "/create-database",
-    INSERT_DATA: "/insert-data"
+    INSERT_DATA: "/insert-data",
+    CSV_DATA: "/csv-data"
     // Add other endpoints as needed
   }
 };

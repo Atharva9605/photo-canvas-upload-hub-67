@@ -22,6 +22,8 @@ import Spreadsheets from "./pages/Spreadsheets";
 import AnalysisResults from "./pages/AnalysisResults";
 import DownloadCSV from "./pages/DownloadCSV";
 import CSVDisplay from "./pages/CSVDisplay";
+import CSVEditor from "./pages/CSVEditor";
+import SavedCSVList from "./pages/SavedCSVList";
 
 const queryClient = new QueryClient();
 
@@ -128,6 +130,22 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <CSVDisplay />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/csv-editor/:id" 
+              element={
+                <ProtectedRoute>
+                  <CSVEditor />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/saved-csvs" 
+              element={
+                <ProtectedRoute>
+                  <SavedCSVList />
                 </ProtectedRoute>
               } 
             />

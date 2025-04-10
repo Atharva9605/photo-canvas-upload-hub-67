@@ -2,9 +2,10 @@
 /**
  * Converts a JSON object or array of objects to CSV format
  * @param jsonData - JSON data to convert (object or array of objects)
+ * @param schema - Optional schema to define column order and headers
  * @returns CSV formatted string
  */
-export function jsonToCSV(jsonData: any): string {
+export function jsonToCSV(jsonData: any, schema?: string[]): string {
   if (!jsonData || typeof jsonData !== 'object') {
     throw new Error('Invalid data format');
   }
@@ -13,8 +14,8 @@ export function jsonToCSV(jsonData: any): string {
   if (Array.isArray(jsonData)) {
     if (jsonData.length === 0) return '';
     
-    // Get headers from the first object
-    const headers = Object.keys(jsonData[0]);
+    // Get headers - either from schema or from the first object
+    const headers = schema || Object.keys(jsonData[0]);
     const csvRows = [];
     
     // Add headers
@@ -42,7 +43,7 @@ export function jsonToCSV(jsonData: any): string {
   } 
   // Handle single object
   else {
-    const headers = Object.keys(jsonData);
+    const headers = schema || Object.keys(jsonData);
     const values = headers.map(header => {
       const value = jsonData[header];
       // Handle complex objects and arrays by JSON stringifying them
@@ -130,3 +131,19 @@ function parseCSVRow(row: string): string[] {
   
   return result.map(value => value.replace(/^"|"$/g, ''));
 }
+
+/**
+ * Default schema for CSV exports
+ * Can be customized based on data structure
+ */
+export const defaultSchema = [
+  'id',
+  'name',
+  'type',
+  'size',
+  'uploadDate',
+  'status',
+  'metadata',
+  'content'
+];
+
