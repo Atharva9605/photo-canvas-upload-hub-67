@@ -108,15 +108,29 @@ const CSVEditor = () => {
     return [];
   };
 
-  const handleSaveChanges = async (updatedData: StockEntrySchema[]) => {
+  const handleSaveChanges = async (updatedData: Record<string, string>[]) => {
     if (!id) {
       toast.error("Cannot save: missing data ID");
       return;
     }
 
     try {
-      await updateCsvData(id, updatedData);
-      setTableData(updatedData);
+      // Convert Record<string, string>[] to StockEntrySchema[]
+      const typedData: StockEntrySchema[] = updatedData.map(item => ({
+        Entry_ID: Number(item.Entry_ID) || 0,
+        DATE: item.DATE || new Date().toISOString().split('T')[0],
+        PARTICULARS: item.PARTICULARS || '',
+        Voucher_BillNo: item.Voucher_BillNo || '',
+        RECEIPTS_Quantity: Number(item.RECEIPTS_Quantity || 0),
+        RECEIPTS_Amount: Number(item.RECEIPTS_Amount || 0),
+        ISSUED_Quantity: Number(item.ISSUED_Quantity || 0),
+        ISSUED_Amount: Number(item.ISSUED_Amount || 0),
+        BALANCE_Quantity: Number(item.BALANCE_Quantity || 0),
+        BALANCE_Amount: Number(item.BALANCE_Amount || 0)
+      }));
+      
+      await updateCsvData(id, typedData);
+      setTableData(typedData);
       toast.success("Changes saved successfully");
     } catch (err) {
       console.error("Error saving changes:", err);
@@ -233,7 +247,7 @@ const CSVEditor = () => {
           </div>
         ) : (
           <EditableTable 
-            data={tableData as Record<string, string>[]}
+            data={tableData as unknown as Record<string, string>[]}
             onSave={handleSaveChanges}
             onDownload={handleDownloadXLSX}
             title={data?.file_name || "Stock Book Data"}
