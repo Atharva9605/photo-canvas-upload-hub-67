@@ -6,7 +6,7 @@ import { geminiApi } from "@/services/geminiService";
 import GeminiAnalysisResults from "@/components/GeminiAnalysisResults";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Download, Share2, Database } from "lucide-react";
+import { ArrowLeft, Download, Share2, Database, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 
 const AnalysisResults = () => {
@@ -88,6 +88,12 @@ const AnalysisResults = () => {
     }
   };
 
+  const handleDownloadCSV = () => {
+    if (id) {
+      navigate(`/download-csv/${id}`);
+    }
+  };
+
   return (
     <Layout>
       <div className="container mx-auto py-8">
@@ -111,7 +117,17 @@ const AnalysisResults = () => {
                   onClick={handleDownloadResults}
                 >
                   <Download className="h-4 w-4" />
-                  Download Results
+                  Download JSON
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-1"
+                  onClick={handleDownloadCSV}
+                  disabled={!results?.extractedData}
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Download as CSV
                 </Button>
                 <Button 
                   variant="outline" 
