@@ -1,6 +1,6 @@
-
 import { useState } from "react";
 import { geminiApi } from "../services/geminiService";
+import { toast } from "sonner";
 
 export function useGeminiApi() {
   const [isLoading, setIsLoading] = useState(false);
@@ -12,11 +12,22 @@ export function useGeminiApi() {
     setError(null);
     
     try {
+      toast.info("Processing with Gemini AI, this may take up to 2 minutes for large files...");
       const result = await geminiApi.analyzeImage(file, options);
       setIsLoading(false);
       return result;
     } catch (err) {
-      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
+      let errorMessage = "Unknown error occurred";
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        // Provide more friendly message for timeout errors
+        if (errorMessage.includes('timeout')) {
+          errorMessage = "The request took too long to process. Please try with a smaller file or try again later.";
+        }
+      }
+      
+      setError(err instanceof Error ? err : new Error(errorMessage));
       setIsLoading(false);
       throw err;
     }

@@ -126,11 +126,17 @@ const Upload = () => {
       const fileName = `${uuidv4()}.${fileExt}`;
       const filePath = `uploads/${fileName}`;
       
+      // Show initial progress toast
+      toast.info("Uploading file to storage...");
+      
       const { error: uploadError } = await supabase.storage
         .from('user_files')
         .upload(filePath, file);
       
       if (uploadError) throw uploadError;
+      
+      // Show progress update
+      toast.info("File uploaded, analyzing with Gemini AI...");
       
       // Record the upload in the database
       const { error: dbError } = await supabase
@@ -144,20 +150,44 @@ const Upload = () => {
       
       if (dbError) throw dbError;
       
-      // Now, analyze the image with Gemini API
-      const results = await analyzeImage(file);
-      console.log("Analysis results:", results);
-      
-      setUploadSuccess(true);
-      toast.success("File successfully uploaded and analyzed");
-      
-      // Navigate to the CSV display page with the result data
-      navigate('/csv-display', { state: { data: results.extractedData || results } });
-      
+      // Now, analyze the image with Gemini API with timeout handling
+      try {
+        const results = await analyzeImage(file);
+        console.log("Analysis results:", results);
+        
+        setUploadSuccess(true);
+        toast.success("File successfully uploaded and analyzed");
+        
+        // Navigate to the CSV display page with the result data
+        navigate('/csv-display', { state: { data: results.extractedData || results } });
+      } catch (analyzeError) {
+        console.error("Analysis error:", analyzeError);
+        
+        // Check if it's a timeout error
+        if (analyzeError.message && analyzeError.message.includes('timeout')) {
+          setUploadError("Analysis timed out. The file may be too large or complex. Please try a smaller file or try again later.");
+          toast.error("Analysis timed out. Please try again with a smaller file.");
+        } else {
+          setUploadError(analyzeError instanceof Error ? analyzeError.message : "An unknown error occurred during analysis");
+          toast.error("Failed to analyze file");
+        }
+        
+        // Even with analysis error, we'll still show a basic view of the uploaded file
+        navigate('/csv-display', { 
+          state: { 
+            data: { 
+              message: "Analysis unavailable. File was uploaded successfully but couldn't be processed.",
+              fileName: file.name,
+              fileType: file.type,
+              fileSize: file.size
+            } 
+          } 
+        });
+      }
     } catch (err) {
       console.error("Upload error:", err);
       setUploadError(err instanceof Error ? err.message : "An unknown error occurred");
-      toast.error("Failed to upload and analyze file");
+      toast.error("Failed to upload file");
     } finally {
       setIsUploading(false);
     }
