@@ -9,6 +9,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Download, Share2, Database, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 
+// Define the expected data schema
+interface StockEntrySchema {
+  Entry_ID?: number;
+  DATE: string;
+  PARTICULARS: string;
+  Voucher_BillNo: string;
+  RECEIPTS_Quantity: number;
+  RECEIPTS_Amount: number;
+  ISSUED_Quantity: number;
+  ISSUED_Amount: number;
+  BALANCE_Quantity: number;
+  BALANCE_Amount: number;
+}
+
 const AnalysisResults = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -37,6 +51,63 @@ const AnalysisResults = () => {
     fetchResults();
   }, [id]);
 
+  const mapDataToSchema = (data: any): StockEntrySchema[] => {
+    // If data is already in the expected format, return it
+    if (Array.isArray(data) && data.length > 0 && 'DATE' in data[0]) {
+      return data as StockEntrySchema[];
+    }
+    
+    // If data is in the extracted format from Gemini
+    if (data && data.extractedData) {
+      // Try to map the extracted data to our schema
+      if (Array.isArray(data.extractedData)) {
+        return data.extractedData.map((item: any, index: number) => {
+          // Try to intelligently map fields or use defaults
+          return {
+            Entry_ID: index + 1,
+            DATE: item.date || new Date().toISOString().split('T')[0],
+            PARTICULARS: item.description || item.particulars || "Unknown",
+            Voucher_BillNo: item.voucher || item.bill_no || "",
+            RECEIPTS_Quantity: Number(item.receipts_quantity || 0),
+            RECEIPTS_Amount: Number(item.receipts_amount || 0),
+            ISSUED_Quantity: Number(item.issued_quantity || 0),
+            ISSUED_Amount: Number(item.issued_amount || 0),
+            BALANCE_Quantity: Number(item.balance_quantity || 0),
+            BALANCE_Amount: Number(item.balance_amount || 0)
+          };
+        });
+      } else if (typeof data.extractedData === 'object') {
+        // Single item
+        return [{
+          Entry_ID: 1,
+          DATE: data.extractedData.date || new Date().toISOString().split('T')[0],
+          PARTICULARS: data.extractedData.description || data.extractedData.particulars || "Unknown",
+          Voucher_BillNo: data.extractedData.voucher || data.extractedData.bill_no || "",
+          RECEIPTS_Quantity: Number(data.extractedData.receipts_quantity || 0),
+          RECEIPTS_Amount: Number(data.extractedData.receipts_amount || 0),
+          ISSUED_Quantity: Number(data.extractedData.issued_quantity || 0),
+          ISSUED_Amount: Number(data.extractedData.issued_amount || 0),
+          BALANCE_Quantity: Number(data.extractedData.balance_quantity || 0),
+          BALANCE_Amount: Number(data.extractedData.balance_amount || 0)
+        }];
+      }
+    }
+    
+    // Fallback - create empty schema object
+    return [{
+      Entry_ID: 1,
+      DATE: new Date().toISOString().split('T')[0],
+      PARTICULARS: "Data from analysis",
+      Voucher_BillNo: "",
+      RECEIPTS_Quantity: 0,
+      RECEIPTS_Amount: 0,
+      ISSUED_Quantity: 0,
+      ISSUED_Amount: 0,
+      BALANCE_Quantity: 0,
+      BALANCE_Amount: 0
+    }];
+  };
+
   const handleDownloadResults = () => {
     if (!results) return;
     
@@ -61,7 +132,7 @@ const AnalysisResults = () => {
   };
 
   const handleSaveToDatabase = async () => {
-    if (!results || !results.extractedData) {
+    if (!results) {
       toast.error("No data available to save to database");
       return;
     }
@@ -69,17 +140,25 @@ const AnalysisResults = () => {
     try {
       setSavingToDatabase(true);
       
+      // Map data to the expected schema before saving
+      const formattedData = mapDataToSchema(results);
+      
       // First, ensure database exists
       await geminiApi.createDatabase();
       
       // Then insert the data
       const insertResponse = await geminiApi.insertDataIntoPostgres(
-        results.extractedData, 
+        formattedData, 
         "StockBook"
       );
       
-      toast.success("Data successfully saved to PostgreSQL database");
+      toast.success("Data successfully saved to database");
       console.log("Insert response:", insertResponse);
+      
+      // Navigate to CSV editor with the ID from the response
+      if (insertResponse && insertResponse.id) {
+        navigate(`/csv-editor/${insertResponse.id}`);
+      }
     } catch (err) {
       console.error("Error saving to database:", err);
       toast.error("Failed to save data to database");
@@ -88,10 +167,23 @@ const AnalysisResults = () => {
     }
   };
 
-  const handleDownloadCSV = () => {
-    if (id) {
-      navigate(`/download-csv/${id}`);
+  const handleViewAsSpreadsheet = () => {
+    if (!results) {
+      toast.error("No data available to view");
+      return;
     }
+    
+    // Format the data according to our schema
+    const formattedData = mapDataToSchema(results);
+    
+    // Navigate to the CSV display page with the formatted data
+    navigate('/csv-display', { 
+      state: { 
+        data: formattedData,
+        fileName: `analysis-${id}.xlsx`,
+        fromAnalysis: true
+      } 
+    });
   };
 
   return (
@@ -123,30 +215,20 @@ const AnalysisResults = () => {
                   variant="outline" 
                   size="sm" 
                   className="flex items-center gap-1"
-                  onClick={handleDownloadCSV}
-                  disabled={!results?.extractedData}
+                  onClick={handleViewAsSpreadsheet}
                 >
                   <FileSpreadsheet className="h-4 w-4" />
-                  Download as CSV
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center gap-1"
-                  onClick={() => toast.info("Sharing functionality not implemented yet")}
-                >
-                  <Share2 className="h-4 w-4" />
-                  Share Results
+                  View as Spreadsheet
                 </Button>
                 <Button 
                   variant="default" 
                   size="sm" 
                   className="flex items-center gap-1"
                   onClick={handleSaveToDatabase}
-                  disabled={isSavingToDatabase || !results?.extractedData}
+                  disabled={isSavingToDatabase || !results}
                 >
                   <Database className="h-4 w-4" />
-                  {isSavingToDatabase ? "Saving..." : "Save to PostgreSQL"}
+                  {isSavingToDatabase ? "Saving..." : "Save to Database"}
                 </Button>
               </>
             )}
@@ -184,14 +266,23 @@ const AnalysisResults = () => {
               </Card>
             )}
 
-            {results && results.extractedData && (
+            {results && (
               <Card>
                 <CardContent className="p-4">
-                  <h3 className="text-lg font-semibold mb-3">Extracted Data (PostgreSQL Ready)</h3>
+                  <h3 className="text-lg font-semibold mb-3">Structured Data Preview</h3>
                   <div className="overflow-auto max-h-[300px] border rounded-md p-4 bg-gray-50 dark:bg-gray-900">
                     <pre className="text-xs">
-                      {JSON.stringify(results.extractedData, null, 2)}
+                      {JSON.stringify(mapDataToSchema(results), null, 2)}
                     </pre>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={handleViewAsSpreadsheet}
+                      className="flex items-center gap-1"
+                    >
+                      <FileSpreadsheet className="h-4 w-4" />
+                      Open in Spreadsheet Editor
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

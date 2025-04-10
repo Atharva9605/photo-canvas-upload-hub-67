@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Edit2, Download, Trash2, FileSpreadsheet, Upload } from "lucide-react";
 import { toast } from "sonner";
-import csvDataService from "@/api/csvDataService";
+import { useGeminiApi } from "@/hooks/useGeminiApi";
 import { jsonToCSV } from "@/utils/csvUtils";
 import { format } from "date-fns";
+import * as XLSX from 'xlsx';
 
 interface CSVDataItem {
   id: string;
@@ -24,30 +25,57 @@ const SavedCSVList = () => {
   const [csvData, setCsvData] = useState<CSVDataItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { getAllCsvData } = useGeminiApi();
 
   useEffect(() => {
     const fetchSavedData = async () => {
       try {
         setIsLoading(true);
-        const data = await csvDataService.getAllData();
+        const data = await getAllCsvData();
         setCsvData(data as CSVDataItem[]);
       } catch (err) {
         console.error("Error fetching saved CSV data:", err);
-        setError("Failed to load saved CSV data");
-        toast.error("Could not load your saved CSV files");
+        setError("Failed to load saved data");
+        toast.error("Could not load your saved files");
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchSavedData();
-  }, []);
+  }, [getAllCsvData]);
 
   const handleEdit = (id: string) => {
     navigate(`/csv-editor/${id}`);
   };
 
-  const handleDownload = (item: CSVDataItem) => {
+  const handleDownloadXLSX = (item: CSVDataItem) => {
+    try {
+      // Create a new workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Convert data to worksheet
+      const ws = XLSX.utils.json_to_sheet(
+        Array.isArray(item.data) ? item.data : [item.data]
+      );
+      
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Stock Data');
+      
+      // Generate file name
+      const fileName = item.file_name || `stock-data-${item.id}.xlsx`;
+      
+      // Write and download
+      XLSX.writeFile(wb, fileName);
+      
+      toast.success("XLSX file downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading XLSX:", error);
+      toast.error("Failed to download the XLSX file");
+    }
+  };
+
+  const handleDownloadCSV = (item: CSVDataItem) => {
     try {
       const csvString = jsonToCSV(Array.isArray(item.data) ? item.data : [item.data]);
       const fileName = item.file_name || `csv-data-${item.id}.csv`;
@@ -91,11 +119,16 @@ const SavedCSVList = () => {
     return 0;
   };
 
+  const handleDelete = (id: string) => {
+    // This would be implemented when the API supports deletion
+    toast.info("Delete functionality will be implemented soon");
+  };
+
   return (
     <Layout>
       <div className="container mx-auto py-8">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Saved CSV Files</h1>
+          <h1 className="text-2xl font-bold">Saved Stock Data</h1>
           <Button 
             onClick={() => navigate('/upload')}
             className="flex items-center gap-1"
@@ -109,7 +142,7 @@ const SavedCSVList = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5" />
-              Your CSV Collection
+              Your Stock Book Collection
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -125,7 +158,7 @@ const SavedCSVList = () => {
               </div>
             ) : csvData.length === 0 ? (
               <div className="text-center p-12">
-                <p className="text-muted-foreground mb-4">You don't have any saved CSV files yet.</p>
+                <p className="text-muted-foreground mb-4">You don't have any saved files yet.</p>
                 <Button onClick={() => navigate('/upload')}>
                   Upload Your First File
                 </Button>
@@ -138,15 +171,15 @@ const SavedCSVList = () => {
                       <TableHead>File Name</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Last Updated</TableHead>
-                      <TableHead>Rows</TableHead>
-                      <TableHead>Columns</TableHead>
+                      <TableHead>Entries</TableHead>
+                      <TableHead>Fields</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {csvData.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.file_name || `CSV-${item.id.substring(0, 8)}`}</TableCell>
+                        <TableCell className="font-medium">{item.file_name || `StockData-${item.id.substring(0, 8)}`}</TableCell>
                         <TableCell>{formatDate(item.created_at)}</TableCell>
                         <TableCell>{formatDate(item.updated_at)}</TableCell>
                         <TableCell>{getRowCount(item.data)}</TableCell>
@@ -164,8 +197,8 @@ const SavedCSVList = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              onClick={() => handleDownload(item)}
-                              title="Download"
+                              onClick={() => handleDownloadXLSX(item)}
+                              title="Download XLSX"
                             >
                               <Download className="h-4 w-4" />
                             </Button>
@@ -174,7 +207,7 @@ const SavedCSVList = () => {
                               size="icon" 
                               className="text-destructive" 
                               title="Delete"
-                              onClick={() => toast.info("Delete functionality will be implemented soon")}
+                              onClick={() => handleDelete(item.id)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

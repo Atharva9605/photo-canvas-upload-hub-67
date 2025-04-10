@@ -17,8 +17,8 @@ const config = {
     EXTRACT_DATA: "/process",
     CREATE_DATABASE: "/create-database",
     INSERT_DATA: "/insert-data",
-    CSV_DATA: "/csv-data"
-    // Add other endpoints as needed
+    CSV_DATA: "/csv-data",
+    UPDATE_CSV_DATA: "/update-csv-data"
   }
 };
 

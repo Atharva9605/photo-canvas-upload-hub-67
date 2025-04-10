@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { geminiApi } from "../services/geminiService";
 import { toast } from "sonner";
@@ -112,6 +113,54 @@ export function useGeminiApi() {
       throw err;
     }
   };
+  
+  // Function to get CSV data by ID
+  const getCsvData = async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await geminiApi.getCsvData(id);
+      setIsLoading(false);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
+      setIsLoading(false);
+      throw err;
+    }
+  };
+  
+  // Function to update CSV data
+  const updateCsvData = async (id: string, data: any) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await geminiApi.updateCsvData(id, data);
+      setIsLoading(false);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
+      setIsLoading(false);
+      throw err;
+    }
+  };
+  
+  // Function to get all CSV data
+  const getAllCsvData = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await geminiApi.getAllCsvData();
+      setIsLoading(false);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
+      setIsLoading(false);
+      throw err;
+    }
+  };
 
   return {
     isLoading,
@@ -121,6 +170,9 @@ export function useGeminiApi() {
     getAnalysisResults,
     processFiles,
     createDatabase,
-    insertDataIntoPostgres
+    insertDataIntoPostgres,
+    getCsvData,
+    updateCsvData,
+    getAllCsvData
   };
 }

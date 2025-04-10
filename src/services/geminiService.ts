@@ -131,5 +131,38 @@ export const geminiApi = {
       console.error('Error inserting data into PostgreSQL:', error);
       throw error;
     }
+  },
+  
+  // Get CSV data by ID
+  getCsvData: async (id: string) => {
+    try {
+      const response = await apiClient.get<any>(`${config.ENDPOINTS.CSV_DATA}/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching CSV data:', error);
+      throw error;
+    }
+  },
+  
+  // Update CSV data
+  updateCsvData: async (id: string, data: any) => {
+    try {
+      const response = await apiClient.post<any>(`${config.ENDPOINTS.UPDATE_CSV_DATA}/${id}`, { data });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating CSV data:', error);
+      throw error;
+    }
+  },
+  
+  // Get all CSV data
+  getAllCsvData: async () => {
+    try {
+      const response = await apiClient.get<any>(config.ENDPOINTS.CSV_DATA);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching all CSV data:', error);
+      throw error;
+    }
   }
 };
