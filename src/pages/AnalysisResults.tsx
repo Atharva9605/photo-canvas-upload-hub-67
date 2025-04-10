@@ -6,7 +6,7 @@ import { geminiApi } from "@/services/geminiService";
 import GeminiAnalysisResults from "@/components/GeminiAnalysisResults";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Download, Share2 } from "lucide-react";
+import { ArrowLeft, Download, Share2, Database } from "lucide-react";
 import { toast } from "sonner";
 
 const AnalysisResults = () => {
@@ -15,6 +15,7 @@ const AnalysisResults = () => {
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isSavingToDatabase, setSavingToDatabase] = useState(false);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -59,6 +60,34 @@ const AnalysisResults = () => {
     }
   };
 
+  const handleSaveToDatabase = async () => {
+    if (!results || !results.extractedData) {
+      toast.error("No data available to save to database");
+      return;
+    }
+
+    try {
+      setSavingToDatabase(true);
+      
+      // First, ensure database exists
+      await geminiApi.createDatabase();
+      
+      // Then insert the data
+      const insertResponse = await geminiApi.insertDataIntoPostgres(
+        results.extractedData, 
+        "StockBook"
+      );
+      
+      toast.success("Data successfully saved to PostgreSQL database");
+      console.log("Insert response:", insertResponse);
+    } catch (err) {
+      console.error("Error saving to database:", err);
+      toast.error("Failed to save data to database");
+    } finally {
+      setSavingToDatabase(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="container mx-auto py-8">
@@ -93,6 +122,16 @@ const AnalysisResults = () => {
                   <Share2 className="h-4 w-4" />
                   Share Results
                 </Button>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="flex items-center gap-1"
+                  onClick={handleSaveToDatabase}
+                  disabled={isSavingToDatabase || !results?.extractedData}
+                >
+                  <Database className="h-4 w-4" />
+                  {isSavingToDatabase ? "Saving..." : "Save to PostgreSQL"}
+                </Button>
               </>
             )}
           </div>
@@ -124,6 +163,19 @@ const AnalysisResults = () => {
                       alt="Analyzed image" 
                       className="mx-auto max-h-[400px] object-contain"
                     />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {results && results.extractedData && (
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="text-lg font-semibold mb-3">Extracted Data (PostgreSQL Ready)</h3>
+                  <div className="overflow-auto max-h-[300px] border rounded-md p-4 bg-gray-50 dark:bg-gray-900">
+                    <pre className="text-xs">
+                      {JSON.stringify(results.extractedData, null, 2)}
+                    </pre>
                   </div>
                 </CardContent>
               </Card>

@@ -100,5 +100,27 @@ export const geminiApi = {
   getAnalysisResults: (analysisId: string) => 
     fetchData<any>(`${config.ENDPOINTS.GET_ANALYSIS}/${analysisId}`),
   
+  // Create database if not exists
+  createDatabase: (dbConfig?: any) =>
+    postData<any>(config.ENDPOINTS.CREATE_DATABASE, dbConfig || {
+      host: config.PG_HOST,
+      port: config.PG_PORT,
+      database: config.PG_DATABASE,
+      user: config.PG_USER,
+    }),
+    
+  // Insert data into postgres
+  insertDataIntoPostgres: (data: any, tableName?: string) =>
+    postData<any>(config.ENDPOINTS.INSERT_DATA, {
+      data,
+      tableName: tableName || 'StockBook',
+      dbConfig: {
+        host: config.PG_HOST,
+        port: config.PG_PORT,
+        database: config.PG_DATABASE,
+        user: config.PG_USER,
+      }
+    }),
+  
   // Add more endpoint methods as needed based on the Gemini API
 };
