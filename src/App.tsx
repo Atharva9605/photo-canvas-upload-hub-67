@@ -19,6 +19,7 @@ import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Spreadsheets from "./pages/Spreadsheets";
+import AnalysisResults from "./pages/AnalysisResults";
 
 const queryClient = new QueryClient();
 
@@ -102,6 +103,14 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <Spreadsheets />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/analysis/:id" 
+                element={
+                  <ProtectedRoute>
+                    <AnalysisResults />
                   </ProtectedRoute>
                 } 
               />

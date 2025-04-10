@@ -1,4 +1,3 @@
-
 import { useState, useRef, DragEvent, ChangeEvent } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -15,11 +14,14 @@ import {
   FileText, 
   Download,
   Files,
-  FileCog
+  FileCog,
+  Brain
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
+import { useGeminiApi } from "@/hooks/useGeminiApi";
+import { toast } from "sonner";
 
 const Upload = () => {
   const [isDragging, setIsDragging] = useState(false);
@@ -29,10 +31,13 @@ const Upload = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState("upload");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState<any>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
+  const { toast: toastNotification } = useToast();
   const navigate = useNavigate();
+  const { analyzeImage, isLoading: isApiLoading } = useGeminiApi();
 
   const acceptedFileTypes = [
     "image/jpeg",
@@ -73,10 +78,11 @@ const Upload = () => {
 
   const validateAndSetFile = (file: File) => {
     setUploadError(null);
+    setAnalysisResults(null);
     
     if (!acceptedFileTypes.includes(file.type)) {
       setUploadError("Invalid file type. Please upload a JPG, PNG, GIF, WebP, PDF, or text file.");
-      toast({
+      toastNotification({
         variant: "destructive",
         title: "Invalid file type",
         description: "Please upload a supported file type.",
@@ -86,7 +92,7 @@ const Upload = () => {
 
     if (file.size > 10 * 1024 * 1024) {
       setUploadError("File too large. Please upload a file less than 10MB in size.");
-      toast({
+      toastNotification({
         variant: "destructive",
         title: "File too large",
         description: "Please upload a file less than 10MB in size.",
@@ -159,26 +165,40 @@ const Upload = () => {
       
       setTimeout(() => {
         setIsUploading(false);
-        setFile(null);
-        setPreview(null);
-        
-        toast({
+        toastNotification({
           title: "Upload successful",
           description: "Your file has been uploaded successfully.",
         });
-        
-        navigate("/all-files");
       }, 500);
       
     } catch (error) {
       console.error("Error uploading file:", error);
       setUploadError("Failed to upload the file. Please try again.");
-      toast({
+      toastNotification({
         variant: "destructive",
         title: "Upload failed",
         description: "Could not upload the file. Please try again.",
       });
       setIsUploading(false);
+    }
+  };
+
+  const handleAnalyzeImage = async () => {
+    if (!file || !file.type.startsWith('image/')) {
+      toast.error("Please upload an image to analyze");
+      return;
+    }
+
+    try {
+      setIsAnalyzing(true);
+      const result = await analyzeImage(file);
+      setAnalysisResults(result);
+      toast.success("Image analysis completed");
+    } catch (error) {
+      console.error("Error analyzing image:", error);
+      toast.error("Failed to analyze image. Please try again.");
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -190,20 +210,23 @@ const Upload = () => {
       case "upload":
         handleUpload();
         break;
+      case "analyze":
+        handleAnalyzeImage();
+        break;
       case "clear":
         clearFile();
         break;
       case "cancel":
         if (isUploading) {
           setIsUploading(false);
-          toast({
+          toastNotification({
             title: "Cancelled",
             description: "The upload has been cancelled.",
           });
         }
         break;
       default:
-        toast({
+        toastNotification({
           description: `Command not recognized: ${command}`,
         });
     }
@@ -388,7 +411,20 @@ const Upload = () => {
                 </Card>
               )}
               
-              <div className="flex justify-center">
+              {analysisResults && (
+                <Card className="mb-6">
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-2">Analysis Results</h3>
+                    <div className="bg-muted p-3 rounded-md">
+                      <pre className="text-sm whitespace-pre-wrap">
+                        {JSON.stringify(analysisResults, null, 2)}
+                      </pre>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              <div className="flex justify-center gap-3">
                 <Button
                   onClick={handleUpload}
                   disabled={!file || isUploading}
@@ -396,6 +432,25 @@ const Upload = () => {
                 >
                   {isUploading ? "Uploading..." : "Upload File"}
                 </Button>
+                
+                {file && file.type.startsWith('image/') && !isAnalyzing && (
+                  <Button
+                    onClick={handleAnalyzeImage}
+                    disabled={isUploading || isAnalyzing || isApiLoading}
+                    variant="outline"
+                    className="min-w-[200px]"
+                  >
+                    <Brain className="mr-2 h-4 w-4" />
+                    Analyze with Gemini
+                  </Button>
+                )}
+                
+                {isAnalyzing && (
+                  <Button disabled className="min-w-[200px]">
+                    <span className="h-4 w-4 animate-spin mr-2 border-2 border-current border-t-transparent rounded-full" />
+                    Analyzing...
+                  </Button>
+                )}
               </div>
             </TabsContent>
             
