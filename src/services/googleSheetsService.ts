@@ -142,7 +142,15 @@ class GoogleSheetsService {
     } catch (error) {
       console.error('Error exporting to Google Sheet:', error);
       toast.error('Failed to export to Google Sheet');
-      throw error;
+      
+      // Return a fallback response to prevent UI errors
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        fallback: true,
+        spreadsheetId: 'error-fallback-id',
+        shareableLink: '#'
+      };
     }
   }
 

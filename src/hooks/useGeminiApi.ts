@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { geminiApi } from "../services/geminiService";
 import { toast } from "sonner";
@@ -15,7 +14,17 @@ export function useGeminiApi() {
     
     try {
       toast.info("Processing with Gemini AI, this may take up to 2 minutes for large files...");
-      const result = await geminiApi.analyzeImage(file, options);
+      
+      // Set a reasonable timeout for the API call
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timed out')), 30000); // 30-second timeout
+      });
+      
+      // Create the API call promise
+      const apiCallPromise = geminiApi.analyzeImage(file, options);
+      
+      // Race the timeout against the actual API call
+      const result = await Promise.race([apiCallPromise, timeoutPromise]) as any;
       setIsLoading(false);
       return result;
     } catch (err) {
@@ -23,15 +32,22 @@ export function useGeminiApi() {
       
       if (err instanceof Error) {
         errorMessage = err.message;
+        
+        // Provide more friendly message for network errors
+        if (err.message.includes('Network Error') || err.message.includes('network') || err.message.includes('timeout')) {
+          errorMessage = "Network connection issue detected. Please check your internet connection and try again, or continue with offline mode.";
+        }
         // Provide more friendly message for timeout errors
-        if (errorMessage.includes('timeout')) {
+        else if (errorMessage.includes('timeout')) {
           errorMessage = "The request took too long to process. Please try with a smaller file or try again later.";
         }
       }
       
       setError(err instanceof Error ? err : new Error(errorMessage));
       setIsLoading(false);
-      throw err;
+      
+      // Return a structured error object that can be handled by the caller
+      throw new Error(errorMessage);
     }
   };
 
@@ -180,14 +196,32 @@ export function useGeminiApi() {
     setError(null);
     
     try {
-      const sheetTitle = `Data_Sheet_${id}`;
-      await googleSheetsService.appendRows(sheetTitle, data);
+      // Set a timeout promise for the operation
+      const timeoutPromise = new Promise<boolean>((_, reject) => {
+        setTimeout(() => reject(new Error('Google Sheets sync timed out')), 15000); // 15-second timeout
+      });
+      
+      // Create the actual operation promise
+      const operationPromise = async () => {
+        const sheetTitle = `Data_Sheet_${id}`;
+        await googleSheetsService.appendRows(sheetTitle, data);
+        return true;
+      };
+      
+      // Race the two promises
+      const result = await Promise.race([operationPromise(), timeoutPromise]);
       setIsLoading(false);
-      return true;
+      return result;
     } catch (err) {
-      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : "Unknown error occurred during Google Sheets sync";
+      
+      setError(err instanceof Error ? err : new Error(errorMessage));
       setIsLoading(false);
-      throw err;
+      
+      // Rethrow for the caller to handle
+      throw new Error(errorMessage);
     }
   };
 
