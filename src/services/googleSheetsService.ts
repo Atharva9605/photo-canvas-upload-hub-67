@@ -30,13 +30,15 @@ class GoogleSheetsService {
         // Create a new document with a title
         // For demonstration purposes, we'll use a dummy ID
         const dummyId = 'dummy-id';
-        // GoogleSpreadsheet constructor requires spreadsheetId as the only parameter in v4
+        
+        // Create the Google Spreadsheet instance
+        // Note: The constructor only takes the spreadsheetId in v4
         this.doc = new GoogleSpreadsheet(dummyId);
         
         // In a real implementation, you'd use the Google Drive API to create the document
         console.log(`In a real implementation, we would create a new spreadsheet titled: ${title}`);
       } else {
-        // GoogleSpreadsheet constructor requires spreadsheetId as the only parameter in v4
+        // Create the Google Spreadsheet instance with the provided ID
         this.doc = new GoogleSpreadsheet(sheetId);
       }
 
@@ -52,8 +54,11 @@ class GoogleSheetsService {
           ],
         });
 
-        // In v4 of google-spreadsheet, we authenticate using the setAuth method
-        await this.doc.useServiceAccountAuth(serviceAccountAuth);
+        // In v4 of google-spreadsheet, we authenticate using serviceAccountAuth
+        await this.doc.useServiceAccountAuth({
+          client_email: this.serviceAccountEmail,
+          private_key: this.privateKey,
+        });
 
         // Load document properties and sheets
         await this.doc.loadInfo();
