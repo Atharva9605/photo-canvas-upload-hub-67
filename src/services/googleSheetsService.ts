@@ -1,6 +1,7 @@
 
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import config from '../config/api';
+import { toast } from 'sonner';
 
 // This class handles all Google Sheets operations
 class GoogleSheetsService {
@@ -107,6 +108,41 @@ class GoogleSheetsService {
       ];
     } catch (error) {
       console.error('Error getting sheet data:', error);
+      throw error;
+    }
+  }
+  
+  // Export data to a new Google Sheet and return a shareable link
+  async exportToGoogleSheet(data: any[], title: string = '') {
+    try {
+      const timestamp = new Date().toISOString().replace(/[-:.]/, '').substring(0, 15);
+      const sheetTitle = title || `Exported_Results_${timestamp}`;
+      
+      console.log(`Exporting ${data.length} rows to a new Google Sheet titled: "${sheetTitle}" (mock mode)`);
+      
+      // In a real implementation, this would:
+      // 1. Create a new spreadsheet or open an existing one
+      // 2. Create a new sheet with the provided title
+      // 3. Add headers based on the data structure
+      // 4. Append all data rows
+      // 5. Return a shareable link to the sheet
+      
+      // For mock mode, we simulate success and return a fake link
+      const mockShareableLink = `https://docs.google.com/spreadsheets/d/mock-spreadsheet-id-${timestamp}/edit?usp=sharing`;
+      
+      // Simulate a delay for realism
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast.success(`Successfully exported to Google Sheet: ${sheetTitle}`);
+      
+      return {
+        success: true,
+        shareableLink: mockShareableLink,
+        sheetTitle
+      };
+    } catch (error) {
+      console.error('Error exporting to Google Sheet:', error);
+      toast.error('Failed to export to Google Sheet');
       throw error;
     }
   }
