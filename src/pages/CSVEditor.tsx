@@ -1,14 +1,15 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { EditableTable } from '@/components/EditableTable';
+import EditableTable from '@/components/EditableTable';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ArrowLeft, Download, Save, Cloud } from 'lucide-react';
 import { useGeminiApi } from '@/hooks/useGeminiApi';
 import * as XLSX from 'xlsx';
 import { googleSheetsService } from '@/services/googleSheetsService';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface RouteState {
   data: {
@@ -165,7 +166,7 @@ const CSVEditor = () => {
           </div>
         </div>
 
-        <EditableTable data={data} onDataChange={handleDataChange} />
+        <EditableTable data={data} onDataChange={handleDataChange} onSave={handleSave} />
       </div>
     </Layout>
   );

@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save, Download, RefreshCw, Trash2, Plus } from 'lucide-react';
 import { toast } from "sonner";
 
-export interface EditableTableProps {
-  data: Record<string, string>[];
-  onSave: (data: Record<string, string>[]) => Promise<void>;
+interface EditableTableProps {
+  data: Record<string, any>[];
+  onDataChange: (data: Record<string, any>[]) => void;
+  onSave?: (data: Record<string, any>[]) => Promise<void>;
   onDownload?: () => void;
   title?: string;
   editable?: boolean;
@@ -17,12 +18,13 @@ export interface EditableTableProps {
 
 const EditableTable: React.FC<EditableTableProps> = ({
   data: initialData,
+  onDataChange,
   onSave,
   onDownload,
   title = "Data Table",
   editable = true
 }) => {
-  const [data, setData] = useState<Record<string, string>[]>(initialData);
+  const [data, setData] = useState<Record<string, any>[]>(initialData);
   const [headers, setHeaders] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{row: number, col: string} | null>(null);
@@ -36,13 +38,16 @@ const EditableTable: React.FC<EditableTableProps> = ({
     }
   }, [initialData]);
 
-  const handleCellChange = (row: number, col: string, value: string) => {
+  const handleCellChange = (row: number, col: string, value: any) => {
     const newData = [...data];
     newData[row][col] = value;
     setData(newData);
+    onDataChange(newData);
   };
 
   const handleSave = async () => {
+    if (!onSave) return;
+    
     try {
       setIsSaving(true);
       await onSave(data);
@@ -56,17 +61,21 @@ const EditableTable: React.FC<EditableTableProps> = ({
   };
 
   const handleAddRow = () => {
-    const newRow: Record<string, string> = {};
+    const newRow: Record<string, any> = {};
     headers.forEach(header => {
       newRow[header] = '';
     });
-    setData([...data, newRow]);
+    const newData = [...data, newRow];
+    setData(newData);
+    onDataChange(newData);
+    toast.info("New row added");
   };
 
   const handleDeleteRow = (index: number) => {
     const newData = [...data];
     newData.splice(index, 1);
     setData(newData);
+    onDataChange(newData);
     toast.info("Row deleted");
   };
 
@@ -172,7 +181,7 @@ const EditableTable: React.FC<EditableTableProps> = ({
               Add Row
             </Button>
           )}
-          {editable && (
+          {editable && onSave && (
             <Button 
               onClick={handleSave} 
               size="sm"
