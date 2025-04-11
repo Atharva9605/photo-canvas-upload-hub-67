@@ -1,7 +1,7 @@
 
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import config from '../config/api';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 
 // This class handles all Google Sheets operations
 class GoogleSheetsService {

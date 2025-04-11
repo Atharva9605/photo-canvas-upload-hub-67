@@ -4,7 +4,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import EditableTable from '@/components/EditableTable';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { ArrowLeft, Download, Save, Cloud, Database, FileSpreadsheet } from 'lucide-react';
 import { useGeminiApi } from '@/hooks/useGeminiApi';
 import * as XLSX from 'xlsx';
