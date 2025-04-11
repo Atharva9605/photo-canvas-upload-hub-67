@@ -28,6 +28,7 @@ import { v4 as uuidv4 } from "uuid";
 import CameraCapture from "@/components/CameraCapture";
 import { createPdfFromImages, downloadPdf } from "@/services/pdfService";
 import { useMediaQuery } from "@/hooks/use-mobile";
+import { googleSheetsService } from "@/services/googleSheetsService";
 
 const Upload = () => {
   const [files, setFiles] = useState<File[]>([]);
@@ -273,11 +274,25 @@ const Upload = () => {
         BALANCE_Amount: Number(item.BALANCE_Amount || 0)
       }));
       
+      let spreadsheetId = null;
+      let sheetUrl = null;
+      
       if (formattedData.length > 0) {
         try {
           const fileId = uploadedFiles[0].id;
           await syncWithGoogleSheets(fileId, formattedData);
           toast.success("Data synced with Google Sheets");
+          
+          const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+          const title = `Data_Sheet_${fileId}_${timestamp}`;
+          
+          const result = await googleSheetsService.exportToGoogleSheet(formattedData, title);
+          
+          if (result.success) {
+            spreadsheetId = result.spreadsheetId;
+            sheetUrl = result.shareableLink;
+            toast.success("Google Sheet created successfully");
+          }
         } catch (sheetError) {
           console.error("Google Sheets sync error:", sheetError);
           toast.error("Failed to sync with Google Sheets");
@@ -294,7 +309,9 @@ const Upload = () => {
             fileId: uploadedFiles[0].id,
             fileName: fileToProcess.name,
             sheetTitle: `Data_Sheet_${uploadedFiles[0].id}`
-          } 
+          },
+          spreadsheetId: spreadsheetId,
+          sheetUrl: sheetUrl
         } 
       });
       

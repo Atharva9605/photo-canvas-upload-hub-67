@@ -4,7 +4,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import EditableTable from '@/components/EditableTable';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { ArrowLeft, Download, Save, Cloud, Database, FileSpreadsheet } from 'lucide-react';
 import { useGeminiApi } from '@/hooks/useGeminiApi';
 import * as XLSX from 'xlsx';
@@ -12,6 +12,7 @@ import { googleSheetsService } from '@/services/googleSheetsService';
 import { tallyService } from '@/services/tallyService';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface RouteState {
   data: {
@@ -20,6 +21,8 @@ interface RouteState {
     fileName: string;
     sheetTitle: string;
   };
+  sheetUrl?: string;
+  spreadsheetId?: string;
 }
 
 interface ExportDialogProps {
@@ -80,15 +83,29 @@ const CSVEditor = () => {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportedLink, setExportedLink] = useState<string | null>(null);
   const [exportedSheetTitle, setExportedSheetTitle] = useState<string | null>(null);
+  
+  // Get the spreadsheetId from location state if provided
+  const routeState = location.state as RouteState | null;
+  const [spreadsheetId, setSpreadsheetId] = useState<string | null>(routeState?.spreadsheetId || null);
+  const [sheetUrl, setSheetUrl] = useState<string | null>(routeState?.sheetUrl || null);
 
   useEffect(() => {
-    const routeState = location.state as RouteState | null;
     if (routeState?.data) {
       const { extractedData, fileId, fileName } = routeState.data;
       setData(extractedData);
       setOriginalData(extractedData);
       setFileName(fileName);
       setFileId(fileId);
+      
+      // If there's a spreadsheetId in the route state, set it
+      if (routeState.spreadsheetId) {
+        setSpreadsheetId(routeState.spreadsheetId);
+      }
+      
+      // If there's a sheetUrl in the route state, set it
+      if (routeState.sheetUrl) {
+        setSheetUrl(routeState.sheetUrl);
+      }
     } else if (id) {
       fetchData(id);
     }
@@ -191,6 +208,8 @@ const CSVEditor = () => {
       if (result.success) {
         setExportedLink(result.shareableLink);
         setExportedSheetTitle(result.sheetTitle);
+        setSpreadsheetId(result.spreadsheetId);
+        setSheetUrl(result.shareableLink);
         setExportDialogOpen(true);
       }
     } catch (error) {
@@ -199,6 +218,12 @@ const CSVEditor = () => {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  // Function to get the embed URL for the Google Sheet
+  const getEmbedUrl = () => {
+    if (!spreadsheetId) return null;
+    return googleSheetsService.getEmbedUrl(spreadsheetId);
   };
 
   return (
@@ -301,6 +326,31 @@ const CSVEditor = () => {
           onSave={handleSave} 
           title="Spreadsheet Data"
         />
+
+        {/* Display the Google Sheet in an iframe if spreadsheetId is available */}
+        {spreadsheetId && (
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle>Google Sheet Preview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <iframe 
+                src={getEmbedUrl() || `https://docs.google.com/spreadsheets/d/${spreadsheetId}/preview`}
+                width="100%" 
+                height="500" 
+                style={{ border: 'none' }}
+                title="Google Sheet Preview"
+              />
+              {sheetUrl && (
+                <div className="mt-4">
+                  <Button variant="outline" onClick={() => window.open(sheetUrl, '_blank')}>
+                    Open in Google Sheets
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <ExportDialog
           isOpen={exportDialogOpen}

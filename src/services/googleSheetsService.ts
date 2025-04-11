@@ -1,7 +1,7 @@
 
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import config from '../config/api';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 // This class handles all Google Sheets operations
 class GoogleSheetsService {
@@ -22,10 +22,7 @@ class GoogleSheetsService {
       // For browser environment, we create a mock document instance
       const mockSheetId = sheetId || 'mock-sheet-id';
       
-      // The GoogleSpreadsheet constructor requires 2 arguments:
-      // 1. spreadsheetId: string
-      // 2. auth: GoogleApiAuth object
-      // Since we're in mock mode, we provide a dummy auth object
+      // The GoogleSpreadsheet constructor requires the spreadsheetId
       this.doc = new GoogleSpreadsheet(mockSheetId, {
         // Provide a minimal mock auth object to satisfy the type requirements
         apiKey: 'mock-api-key'
@@ -95,7 +92,7 @@ class GoogleSheetsService {
       return [
         {
           Entry_ID: 1,
-          DATE: '2025-04-10',
+          DATE: '2025-04-11',
           PARTICULARS: 'Sample Entry',
           Voucher_BillNo: 'VB-001',
           RECEIPTS_Quantity: 10,
@@ -128,7 +125,8 @@ class GoogleSheetsService {
       // 5. Return a shareable link to the sheet
       
       // For mock mode, we simulate success and return a fake link
-      const mockShareableLink = `https://docs.google.com/spreadsheets/d/mock-spreadsheet-id-${timestamp}/edit?usp=sharing`;
+      const mockSpreadsheetId = `mock-spreadsheet-id-${timestamp}`;
+      const mockShareableLink = `https://docs.google.com/spreadsheets/d/${mockSpreadsheetId}/edit?usp=sharing`;
       
       // Simulate a delay for realism
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -138,13 +136,20 @@ class GoogleSheetsService {
       return {
         success: true,
         shareableLink: mockShareableLink,
-        sheetTitle
+        sheetTitle,
+        spreadsheetId: mockSpreadsheetId
       };
     } catch (error) {
       console.error('Error exporting to Google Sheet:', error);
       toast.error('Failed to export to Google Sheet');
       throw error;
     }
+  }
+
+  // Get the Google Sheets preview URL for embedding
+  getEmbedUrl(spreadsheetId: string): string {
+    // Return the URL for embedding a Google Sheet in an iframe
+    return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/preview`;
   }
 }
 
