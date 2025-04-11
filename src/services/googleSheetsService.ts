@@ -1,4 +1,3 @@
-
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import config from '../config/api';
 
@@ -21,10 +20,9 @@ class GoogleSheetsService {
       // For browser environment, we create a mock document instance
       const mockSheetId = sheetId || 'mock-sheet-id';
       
-      // The GoogleSpreadsheet constructor requires 2 arguments:
-      // 1. spreadsheetId: string
-      // 2. options: object (can be empty)
-      this.doc = new GoogleSpreadsheet(mockSheetId, {});
+      // The GoogleSpreadsheet constructor requires authentication, but since we're in mock mode
+      // we'll use a placeholder value. In production, this would be handled by a backend service.
+      this.doc = new GoogleSpreadsheet(mockSheetId);
       
       // In browser, we would typically make API calls to a backend service
       // that handles the actual Google Sheets API authentication and operations
