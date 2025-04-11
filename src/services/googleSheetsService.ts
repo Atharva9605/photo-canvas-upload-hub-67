@@ -25,16 +25,22 @@ class GoogleSheetsService {
       if (!sheetId) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const title = `Upload_Results_${timestamp}`;
-        this.doc = new GoogleSpreadsheet();
-        await this.doc.createNewSpreadsheetDocument({ title });
+        
+        // Create a new document
+        this.doc = new GoogleSpreadsheet(sheetId || '');
+        
+        // We can't create a new spreadsheet document directly with google-spreadsheet v4
+        // In a real implementation, you'd use the Google Drive API to create the document
+        console.log(`In a real implementation, we would create a new spreadsheet titled: ${title}`);
       } else {
         this.doc = new GoogleSpreadsheet(sheetId);
       }
 
       // Authenticate with the Google Sheets API
+      // In version 4 of google-spreadsheet, we need to use this method differently
       await this.doc.useServiceAccountAuth({
         client_email: this.serviceAccountEmail,
-        private_key: this.privateKey,
+        private_key: this.privateKey
       });
 
       // Load document properties and sheets

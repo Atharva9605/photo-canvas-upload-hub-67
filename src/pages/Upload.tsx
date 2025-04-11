@@ -1,4 +1,3 @@
-
 import { useState, useRef, ChangeEvent, DragEvent, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -44,11 +43,9 @@ const Upload = () => {
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 640px)");
 
-  // Check if camera is available
   const [hasCameraSupport, setHasCameraSupport] = useState(false);
   
   useEffect(() => {
-    // Check if running in a browser that supports mediaDevices
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.enumerateDevices()
         .then(devices => {
@@ -70,27 +67,17 @@ const Upload = () => {
   };
 
   const addFilesToCollection = (selectedFiles: File[]) => {
-    // Add new files to the collection
     setFiles(prevFiles => [...prevFiles, ...selectedFiles]);
-    
-    // Reset states
     setUploadSuccess(false);
     setUploadError(null);
-    
-    // Create previews for images
     const newPreviews = selectedFiles.map(file => {
       if (file.type.startsWith('image/')) {
         return URL.createObjectURL(file);
       }
       return '';
     });
-    
     setPreviewUrls(prevUrls => [...prevUrls, ...newPreviews]);
-    
-    // Initialize selection state for new files
     setSelectedFilesForPdf(prev => [...prev, ...selectedFiles.map(() => true)]);
-
-    // Clean up object URLs when component unmounts
     return () => {
       newPreviews.forEach(url => {
         if (url) URL.revokeObjectURL(url);
@@ -119,22 +106,18 @@ const Upload = () => {
   };
 
   const handleRemoveFile = (index: number) => {
-    // Create new arrays without the removed file
     const newFiles = [...files];
     const newPreviewUrls = [...previewUrls];
     const newSelectedFiles = [...selectedFilesForPdf];
     
-    // Release the object URL to prevent memory leaks
     if (previewUrls[index]) {
       URL.revokeObjectURL(previewUrls[index]);
     }
     
-    // Remove the file from the arrays
     newFiles.splice(index, 1);
     newPreviewUrls.splice(index, 1);
     newSelectedFiles.splice(index, 1);
     
-    // Update state
     setFiles(newFiles);
     setPreviewUrls(newPreviewUrls);
     setSelectedFilesForPdf(newSelectedFiles);
@@ -146,12 +129,10 @@ const Upload = () => {
   };
 
   const handleClearAllFiles = () => {
-    // Release all object URLs
     previewUrls.forEach(url => {
       if (url) URL.revokeObjectURL(url);
     });
     
-    // Reset state
     setFiles([]);
     setPreviewUrls([]);
     setSelectedFilesForPdf([]);
@@ -175,7 +156,6 @@ const Upload = () => {
   };
 
   const handleCreatePdf = async () => {
-    // Get selected image files
     const selectedImageFiles = files.filter((file, index) => 
       selectedFilesForPdf[index] && file.type.startsWith('image/')
     );
@@ -188,14 +168,11 @@ const Upload = () => {
     try {
       toast.info("Creating PDF...");
       
-      // Create PDF from selected images
       const pdfBlob = await createPdfFromImages(selectedImageFiles);
       
-      // Create a File object from the Blob
       const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
       const pdfFile = new File([pdfBlob], `photo-upload-${timestamp}.pdf`, { type: 'application/pdf' });
       
-      // Add the PDF to the files collection
       addFilesToCollection([pdfFile]);
       
       toast.success("PDF created successfully!");
@@ -232,13 +209,10 @@ const Upload = () => {
     setUploadError(null);
 
     try {
-      // Show initial progress toast
       toast.info("Uploading files to storage...");
       
-      // Array to store information about uploaded files
       const uploadedFiles = [];
       
-      // Upload each file to Supabase Storage
       for (const file of files) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${uuidv4()}.${fileExt}`;
@@ -250,7 +224,6 @@ const Upload = () => {
         
         if (uploadError) throw uploadError;
         
-        // Record the upload in the database
         const { error: dbError, data: fileData } = await supabase
           .from('user_uploads')
           .insert({
@@ -271,18 +244,14 @@ const Upload = () => {
         });
       }
       
-      // Show progress update
       toast.info("Files uploaded, analyzing with Gemini AI...");
       
-      // Process the first file (or the PDF if one was created)
       const pdfFile = files.find(file => file.type === 'application/pdf');
       const fileToProcess = pdfFile || files[0];
       
-      // Analyze the file with Gemini API
       const results = await analyzeImage(fileToProcess);
       console.log("Analysis results:", results);
       
-      // Extract data according to our schema
       let extractedData = [];
       
       if (results?.extractedData && Array.isArray(results.extractedData)) {
@@ -291,7 +260,6 @@ const Upload = () => {
         extractedData = results.data;
       }
       
-      // Format extracted data to match our database schema
       const formattedData = extractedData.map((item: any, index: number) => ({
         Entry_ID: item.Entry_ID || index + 1,
         DATE: item.DATE || new Date().toISOString().split('T')[0],
@@ -305,7 +273,6 @@ const Upload = () => {
         BALANCE_Amount: Number(item.BALANCE_Amount || 0)
       }));
       
-      // If we have data, sync it with Google Sheets
       if (formattedData.length > 0) {
         try {
           const fileId = uploadedFiles[0].id;
@@ -320,7 +287,6 @@ const Upload = () => {
       setUploadSuccess(true);
       toast.success("Files successfully uploaded and analyzed");
       
-      // Navigate to the CSV display page with the result data
       navigate('/csv-display', { 
         state: { 
           data: {
@@ -395,7 +361,6 @@ const Upload = () => {
                 </div>
               </div>
               
-              {/* Mobile-friendly camera and PDF buttons */}
               <div className="mt-4 flex flex-wrap gap-2">
                 {hasCameraSupport && (
                   <Button 
@@ -426,7 +391,6 @@ const Upload = () => {
                 )}
               </div>
               
-              {/* File list */}
               {files.length > 0 && (
                 <div className="mt-4">
                   <div className="mb-2 flex items-center justify-between">
@@ -602,7 +566,6 @@ const Upload = () => {
         </div>
       </div>
       
-      {/* Camera component */}
       <CameraCapture 
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
@@ -612,7 +575,6 @@ const Upload = () => {
   );
 };
 
-// Helper component for file icons
 const FileIcon = ({ type, size = 24 }: { type: string; size?: number }) => {
   if (type.startsWith('image/')) {
     return <FileImage style={{ width: size, height: size }} className="text-blue-500" />;
@@ -623,7 +585,6 @@ const FileIcon = ({ type, size = 24 }: { type: string; size?: number }) => {
   }
 };
 
-// Loading spinner component
 const LoadingSpinner = () => (
   <svg
     className="h-4 w-4 animate-spin"
