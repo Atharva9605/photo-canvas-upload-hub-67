@@ -1,5 +1,5 @@
 
-import { useState, useRef, ChangeEvent, DragEvent } from "react";
+import { useState, useRef, ChangeEvent, DragEvent, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,42 +18,84 @@ import {
   FileX,
   AlertTriangle,
   Check,
-  X
+  X,
+  Camera,
+  FilePlus,
+  Smartphone,
+  FileImage
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
+import CameraCapture from "@/components/CameraCapture";
+import { createPdfFromImages, downloadPdf } from "@/services/pdfService";
+import { useMediaQuery } from "@/hooks/use-mobile";
 
 const Upload = () => {
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [selectedFilesForPdf, setSelectedFilesForPdf] = useState<boolean[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { isLoading, error, analyzeImage } = useGeminiApi();
+  const { isLoading, error, analyzeImage, syncWithGoogleSheets } = useGeminiApi();
   const navigate = useNavigate();
+  const isMobile = useMediaQuery("(max-width: 640px)");
+
+  // Check if camera is available
+  const [hasCameraSupport, setHasCameraSupport] = useState(false);
+  
+  useEffect(() => {
+    // Check if running in a browser that supports mediaDevices
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.enumerateDevices()
+        .then(devices => {
+          const videoDevices = devices.filter(device => device.kind === 'videoinput');
+          setHasCameraSupport(videoDevices.length > 0);
+        })
+        .catch(err => {
+          console.error('Error checking camera:', err);
+          setHasCameraSupport(false);
+        });
+    }
+  }, []);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      
-      // Reset states
-      setFile(selectedFile);
-      setUploadSuccess(false);
-      setUploadError(null);
-      
-      // Preview for images
-      if (selectedFile.type.startsWith('image/')) {
-        const objectUrl = URL.createObjectURL(selectedFile);
-        setPreviewUrl(objectUrl);
-        
-        // Clean up the URL when component unmounts
-        return () => URL.revokeObjectURL(objectUrl);
-      } else {
-        setPreviewUrl(null);
-      }
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFiles = Array.from(e.target.files);
+      addFilesToCollection(selectedFiles);
     }
+  };
+
+  const addFilesToCollection = (selectedFiles: File[]) => {
+    // Add new files to the collection
+    setFiles(prevFiles => [...prevFiles, ...selectedFiles]);
+    
+    // Reset states
+    setUploadSuccess(false);
+    setUploadError(null);
+    
+    // Create previews for images
+    const newPreviews = selectedFiles.map(file => {
+      if (file.type.startsWith('image/')) {
+        return URL.createObjectURL(file);
+      }
+      return '';
+    });
+    
+    setPreviewUrls(prevUrls => [...prevUrls, ...newPreviews]);
+    
+    // Initialize selection state for new files
+    setSelectedFilesForPdf(prev => [...prev, ...selectedFiles.map(() => true)]);
+
+    // Clean up object URLs when component unmounts
+    return () => {
+      newPreviews.forEach(url => {
+        if (url) URL.revokeObjectURL(url);
+      });
+    };
   };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -70,31 +112,96 @@ const Upload = () => {
     e.preventDefault();
     setIsDragging(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-      
-      // Reset states
-      setFile(droppedFile);
-      setUploadSuccess(false);
-      setUploadError(null);
-      
-      // Preview for images
-      if (droppedFile.type.startsWith('image/')) {
-        const objectUrl = URL.createObjectURL(droppedFile);
-        setPreviewUrl(objectUrl);
-      } else {
-        setPreviewUrl(null);
-      }
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      addFilesToCollection(droppedFiles);
     }
   };
 
-  const handleClearFile = () => {
-    setFile(null);
-    setPreviewUrl(null);
+  const handleRemoveFile = (index: number) => {
+    // Create new arrays without the removed file
+    const newFiles = [...files];
+    const newPreviewUrls = [...previewUrls];
+    const newSelectedFiles = [...selectedFilesForPdf];
+    
+    // Release the object URL to prevent memory leaks
+    if (previewUrls[index]) {
+      URL.revokeObjectURL(previewUrls[index]);
+    }
+    
+    // Remove the file from the arrays
+    newFiles.splice(index, 1);
+    newPreviewUrls.splice(index, 1);
+    newSelectedFiles.splice(index, 1);
+    
+    // Update state
+    setFiles(newFiles);
+    setPreviewUrls(newPreviewUrls);
+    setSelectedFilesForPdf(newSelectedFiles);
+    
+    if (newFiles.length === 0) {
+      setUploadSuccess(false);
+      setUploadError(null);
+    }
+  };
+
+  const handleClearAllFiles = () => {
+    // Release all object URLs
+    previewUrls.forEach(url => {
+      if (url) URL.revokeObjectURL(url);
+    });
+    
+    // Reset state
+    setFiles([]);
+    setPreviewUrls([]);
+    setSelectedFilesForPdf([]);
     setUploadSuccess(false);
     setUploadError(null);
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCameraCapture = (capturedFile: File) => {
+    addFilesToCollection([capturedFile]);
+    toast.success("Photo captured successfully!");
+  };
+
+  const toggleFileSelection = (index: number) => {
+    const newSelectedFiles = [...selectedFilesForPdf];
+    newSelectedFiles[index] = !newSelectedFiles[index];
+    setSelectedFilesForPdf(newSelectedFiles);
+  };
+
+  const handleCreatePdf = async () => {
+    // Get selected image files
+    const selectedImageFiles = files.filter((file, index) => 
+      selectedFilesForPdf[index] && file.type.startsWith('image/')
+    );
+    
+    if (selectedImageFiles.length === 0) {
+      toast.error("Please select at least one image to create a PDF");
+      return;
+    }
+    
+    try {
+      toast.info("Creating PDF...");
+      
+      // Create PDF from selected images
+      const pdfBlob = await createPdfFromImages(selectedImageFiles);
+      
+      // Create a File object from the Blob
+      const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
+      const pdfFile = new File([pdfBlob], `photo-upload-${timestamp}.pdf`, { type: 'application/pdf' });
+      
+      // Add the PDF to the files collection
+      addFilesToCollection([pdfFile]);
+      
+      toast.success("PDF created successfully!");
+    } catch (error) {
+      console.error("Error creating PDF:", error);
+      toast.error("Failed to create PDF");
     }
   };
 
@@ -104,15 +211,19 @@ const Upload = () => {
         fileInputRef.current.click();
       }
     } else if (command === "clear") {
-      handleClearFile();
-    } else if (command === "analyze" && file) {
+      handleClearAllFiles();
+    } else if (command === "analyze" && files.length > 0) {
       handleUpload();
+    } else if (command === "camera" && hasCameraSupport) {
+      setIsCameraOpen(true);
+    } else if (command === "pdf") {
+      handleCreatePdf();
     }
   };
 
   const handleUpload = async () => {
-    if (!file) {
-      toast.error("Please select a file to upload");
+    if (files.length === 0) {
+      toast.error("Please select files to upload");
       return;
     }
     
@@ -121,73 +232,110 @@ const Upload = () => {
     setUploadError(null);
 
     try {
-      // First, upload the file to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${uuidv4()}.${fileExt}`;
-      const filePath = `uploads/${fileName}`;
-      
       // Show initial progress toast
-      toast.info("Uploading file to storage...");
+      toast.info("Uploading files to storage...");
       
-      const { error: uploadError } = await supabase.storage
-        .from('user_files')
-        .upload(filePath, file);
+      // Array to store information about uploaded files
+      const uploadedFiles = [];
       
-      if (uploadError) throw uploadError;
-      
-      // Show progress update
-      toast.info("File uploaded, analyzing with Gemini AI...");
-      
-      // Record the upload in the database
-      const { error: dbError } = await supabase
-        .from('user_uploads')
-        .insert({
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          storage_path: filePath
-        });
-      
-      if (dbError) throw dbError;
-      
-      // Now, analyze the image with Gemini API with timeout handling
-      try {
-        const results = await analyzeImage(file);
-        console.log("Analysis results:", results);
+      // Upload each file to Supabase Storage
+      for (const file of files) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const filePath = `uploads/${fileName}`;
         
-        setUploadSuccess(true);
-        toast.success("File successfully uploaded and analyzed");
+        const { error: uploadError } = await supabase.storage
+          .from('user_files')
+          .upload(filePath, file);
         
-        // Navigate to the CSV display page with the result data
-        navigate('/csv-display', { state: { data: results.extractedData || results } });
-      } catch (analyzeError) {
-        console.error("Analysis error:", analyzeError);
+        if (uploadError) throw uploadError;
         
-        // Check if it's a timeout error
-        if (analyzeError.message && analyzeError.message.includes('timeout')) {
-          setUploadError("Analysis timed out. The file may be too large or complex. Please try a smaller file or try again later.");
-          toast.error("Analysis timed out. Please try again with a smaller file.");
-        } else {
-          setUploadError(analyzeError instanceof Error ? analyzeError.message : "An unknown error occurred during analysis");
-          toast.error("Failed to analyze file");
-        }
+        // Record the upload in the database
+        const { error: dbError, data: fileData } = await supabase
+          .from('user_uploads')
+          .insert({
+            file_name: file.name,
+            file_type: file.type,
+            file_size: file.size,
+            storage_path: filePath
+          })
+          .select('id')
+          .single();
         
-        // Even with analysis error, we'll still show a basic view of the uploaded file
-        navigate('/csv-display', { 
-          state: { 
-            data: { 
-              message: "Analysis unavailable. File was uploaded successfully but couldn't be processed.",
-              fileName: file.name,
-              fileType: file.type,
-              fileSize: file.size
-            } 
-          } 
+        if (dbError) throw dbError;
+        
+        uploadedFiles.push({
+          id: fileData.id,
+          file: file,
+          path: filePath
         });
       }
+      
+      // Show progress update
+      toast.info("Files uploaded, analyzing with Gemini AI...");
+      
+      // Process the first file (or the PDF if one was created)
+      const pdfFile = files.find(file => file.type === 'application/pdf');
+      const fileToProcess = pdfFile || files[0];
+      
+      // Analyze the file with Gemini API
+      const results = await analyzeImage(fileToProcess);
+      console.log("Analysis results:", results);
+      
+      // Extract data according to our schema
+      let extractedData = [];
+      
+      if (results?.extractedData && Array.isArray(results.extractedData)) {
+        extractedData = results.extractedData;
+      } else if (results?.data && Array.isArray(results.data)) {
+        extractedData = results.data;
+      }
+      
+      // Format extracted data to match our database schema
+      const formattedData = extractedData.map((item: any, index: number) => ({
+        Entry_ID: item.Entry_ID || index + 1,
+        DATE: item.DATE || new Date().toISOString().split('T')[0],
+        PARTICULARS: item.PARTICULARS || '',
+        Voucher_BillNo: item.Voucher_BillNo || '',
+        RECEIPTS_Quantity: Number(item.RECEIPTS_Quantity || 0),
+        RECEIPTS_Amount: Number(item.RECEIPTS_Amount || 0),
+        ISSUED_Quantity: Number(item.ISSUED_Quantity || 0),
+        ISSUED_Amount: Number(item.ISSUED_Amount || 0),
+        BALANCE_Quantity: Number(item.BALANCE_Quantity || 0),
+        BALANCE_Amount: Number(item.BALANCE_Amount || 0)
+      }));
+      
+      // If we have data, sync it with Google Sheets
+      if (formattedData.length > 0) {
+        try {
+          const fileId = uploadedFiles[0].id;
+          await syncWithGoogleSheets(fileId, formattedData);
+          toast.success("Data synced with Google Sheets");
+        } catch (sheetError) {
+          console.error("Google Sheets sync error:", sheetError);
+          toast.error("Failed to sync with Google Sheets");
+        }
+      }
+      
+      setUploadSuccess(true);
+      toast.success("Files successfully uploaded and analyzed");
+      
+      // Navigate to the CSV display page with the result data
+      navigate('/csv-display', { 
+        state: { 
+          data: {
+            extractedData: formattedData,
+            fileId: uploadedFiles[0].id,
+            fileName: fileToProcess.name,
+            sheetTitle: `Data_Sheet_${uploadedFiles[0].id}`
+          } 
+        } 
+      });
+      
     } catch (err) {
       console.error("Upload error:", err);
       setUploadError(err instanceof Error ? err.message : "An unknown error occurred");
-      toast.error("Failed to upload file");
+      toast.error("Failed to upload files");
     } finally {
       setIsUploading(false);
     }
@@ -203,7 +351,7 @@ const Upload = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <UploadIcon className="h-5 w-5" />
-                Upload File
+                Upload Files
               </CardTitle>
               <CardDescription>
                 Upload images or documents for analysis using Gemini AI
@@ -225,40 +373,10 @@ const Upload = () => {
                   className="hidden"
                   onChange={handleFileChange}
                   accept="image/*,application/pdf,text/csv"
+                  multiple
                 />
                 <div className="flex flex-col items-center justify-center text-center">
-                  {file ? (
-                    <>
-                      <div className="relative mb-4 overflow-hidden rounded-lg">
-                        {previewUrl ? (
-                          <img 
-                            src={previewUrl} 
-                            alt="File preview" 
-                            className="h-36 w-auto object-cover" 
-                          />
-                        ) : (
-                          <div className="flex h-36 w-36 items-center justify-center bg-muted text-muted-foreground">
-                            <FileIcon type={file.type} size={48} />
-                          </div>
-                        )}
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute right-2 top-2 h-6 w-6 rounded-full"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleClearFile();
-                          }}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <p className="text-sm font-medium">{file.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(file.size / 1024).toFixed(1)} KB
-                      </p>
-                    </>
-                  ) : (
+                  {files.length === 0 ? (
                     <>
                       <ImageIcon className="mb-2 h-10 w-10 text-muted-foreground" />
                       <h3 className="mb-1 text-lg font-semibold">Drag & drop or click to upload</h3>
@@ -266,9 +384,115 @@ const Upload = () => {
                         Support images, PDF files, and CSV spreadsheets
                       </p>
                     </>
+                  ) : (
+                    <>
+                      <h3 className="mb-1 text-lg font-semibold">Selected Files: {files.length}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Click to add more files or drag & drop them here
+                      </p>
+                    </>
                   )}
                 </div>
               </div>
+              
+              {/* Mobile-friendly camera and PDF buttons */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {hasCameraSupport && (
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center gap-2 text-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsCameraOpen(true);
+                    }}
+                  >
+                    <Camera className="h-4 w-4" />
+                    {isMobile ? "Take Photo" : "Use Camera"}
+                  </Button>
+                )}
+                
+                {files.some(file => file.type.startsWith('image/')) && (
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center gap-2 text-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCreatePdf();
+                    }}
+                  >
+                    <FilePlus className="h-4 w-4" />
+                    Create PDF
+                  </Button>
+                )}
+              </div>
+              
+              {/* File list */}
+              {files.length > 0 && (
+                <div className="mt-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="font-medium">Selected Files</h3>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 text-destructive"
+                      onClick={handleClearAllFiles}
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto rounded-md border">
+                    {files.map((file, index) => (
+                      <div 
+                        key={index}
+                        className="flex items-center justify-between border-b p-2 last:border-b-0"
+                      >
+                        <div className="flex items-center space-x-3">
+                          {file.type.startsWith('image/') && (
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedFilesForPdf[index]}
+                                onChange={() => toggleFileSelection(index)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mr-2 h-4 w-4 rounded border-gray-300"
+                              />
+                              {previewUrls[index] && (
+                                <img 
+                                  src={previewUrls[index]}
+                                  alt="Preview" 
+                                  className="h-10 w-10 rounded object-cover"
+                                />
+                              )}
+                            </div>
+                          )}
+                          {!file.type.startsWith('image/') && (
+                            <FileIcon type={file.type} size={24} />
+                          )}
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium truncate max-w-[150px]">
+                              {file.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {(file.size / 1024).toFixed(1)} KB
+                            </span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveFile(index);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               <div className="mt-4 flex flex-col space-y-3">
                 {uploadError && (
@@ -283,7 +507,7 @@ const Upload = () => {
                   <Alert variant="default" className="border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
                     <Check className="h-4 w-4" />
                     <AlertTitle>Success</AlertTitle>
-                    <AlertDescription>File uploaded and analyzed successfully</AlertDescription>
+                    <AlertDescription>Files uploaded and analyzed successfully</AlertDescription>
                   </Alert>
                 )}
                 
@@ -294,7 +518,7 @@ const Upload = () => {
                       handleUpload();
                     }}
                     className="w-full"
-                    disabled={!file || isUploading || isLoading}
+                    disabled={files.length === 0 || isUploading || isLoading}
                   >
                     {isUploading || isLoading ? (
                       <span className="flex items-center gap-1">
@@ -334,12 +558,33 @@ const Upload = () => {
               <Separator />
               
               <div>
+                <h3 className="mb-2 text-lg font-medium">Mobile Features</h3>
+                <ul className="ml-6 list-disc space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-1">
+                    <Camera className="h-4 w-4 inline" />
+                    Take photos with your device camera
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <FilePlus className="h-4 w-4 inline" />
+                    Create PDF from multiple images
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <Smartphone className="h-4 w-4 inline" />
+                    Mobile-optimized interface
+                  </li>
+                </ul>
+              </div>
+              
+              <Separator />
+              
+              <div>
                 <h3 className="mb-2 text-lg font-medium">Process</h3>
                 <ol className="ml-6 list-decimal space-y-2 text-muted-foreground">
-                  <li>Upload your file securely to our storage</li>
+                  <li>Upload your files securely to our storage</li>
                   <li>Gemini AI analyzes the content</li>
-                  <li>Results are displayed as CSV data for easy use</li>
-                  <li>Download your data for offline access</li>
+                  <li>Results are displayed as spreadsheet data</li>
+                  <li>Data is synced with Google Sheets</li>
+                  <li>Edit and save changes back to database</li>
                 </ol>
               </div>
               
@@ -356,6 +601,13 @@ const Upload = () => {
           </Card>
         </div>
       </div>
+      
+      {/* Camera component */}
+      <CameraCapture 
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleCameraCapture}
+      />
     </Layout>
   );
 };
@@ -363,7 +615,7 @@ const Upload = () => {
 // Helper component for file icons
 const FileIcon = ({ type, size = 24 }: { type: string; size?: number }) => {
   if (type.startsWith('image/')) {
-    return <ImageIcon style={{ width: size, height: size }} className="text-blue-500" />;
+    return <FileImage style={{ width: size, height: size }} className="text-blue-500" />;
   } else if (type === 'application/pdf') {
     return <FileX style={{ width: size, height: size }} className="text-red-500" />;
   } else {

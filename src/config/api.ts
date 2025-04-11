@@ -18,7 +18,16 @@ const config = {
     CREATE_DATABASE: "/create-database",
     INSERT_DATA: "/insert-data",
     CSV_DATA: "/csv-data",
-    UPDATE_CSV_DATA: "/update-csv-data"
+    UPDATE_CSV_DATA: "/update-csv-data",
+    GOOGLE_SHEETS: "/google-sheets",
+    SYNC_SHEETS: "/sync-sheets"
+  },
+  
+  // Google Sheets API config
+  GOOGLE_SHEETS: {
+    API_KEY: "", // Would be provided through environment variables
+    CLIENT_ID: "",
+    REDIRECT_URI: window.location.origin + "/auth/google/callback"
   }
 };
 

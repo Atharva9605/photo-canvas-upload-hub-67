@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { geminiApi } from "../services/geminiService";
 import { toast } from "sonner";
+import { googleSheetsService } from "../services/googleSheetsService";
 
 export function useGeminiApi() {
   const [isLoading, setIsLoading] = useState(false);
@@ -137,6 +138,17 @@ export function useGeminiApi() {
     
     try {
       const result = await geminiApi.updateCsvData(id, data);
+      
+      // Sync with Google Sheets
+      try {
+        const sheetTitle = `Data_Sheet_${id}`;
+        await googleSheetsService.updateRows(sheetTitle, data);
+        toast.success("Data synced with Google Sheets");
+      } catch (sheetErr) {
+        console.error("Error syncing with Google Sheets:", sheetErr);
+        toast.error("Failed to sync with Google Sheets");
+      }
+      
       setIsLoading(false);
       return result;
     } catch (err) {
@@ -162,6 +174,23 @@ export function useGeminiApi() {
     }
   };
 
+  // Function to sync data with Google Sheets
+  const syncWithGoogleSheets = async (id: string, data: any) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const sheetTitle = `Data_Sheet_${id}`;
+      await googleSheetsService.appendRows(sheetTitle, data);
+      setIsLoading(false);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
+      setIsLoading(false);
+      throw err;
+    }
+  };
+
   return {
     isLoading,
     error,
@@ -173,6 +202,7 @@ export function useGeminiApi() {
     insertDataIntoPostgres,
     getCsvData,
     updateCsvData,
-    getAllCsvData
+    getAllCsvData,
+    syncWithGoogleSheets
   };
 }

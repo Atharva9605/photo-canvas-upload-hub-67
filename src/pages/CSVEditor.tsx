@@ -3,12 +3,13 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, Download } from "lucide-react";
+import { ArrowLeft, Save, Download, RefreshCw, CloudSync } from "lucide-react";
 import { toast } from "sonner";
 import EditableTable from "@/components/EditableTable";
 import { jsonToCSV } from "@/utils/csvUtils";
 import { useGeminiApi } from "@/hooks/useGeminiApi";
 import * as XLSX from 'xlsx';
+import { googleSheetsService } from "@/services/googleSheetsService";
 
 // Define the expected data schema
 interface StockEntrySchema {
@@ -30,8 +31,9 @@ const CSVEditor = () => {
   const [data, setData] = useState<any>(null);
   const [tableData, setTableData] = useState<StockEntrySchema[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getCsvData, updateCsvData, isLoading: apiLoading } = useGeminiApi();
+  const { getCsvData, updateCsvData, isLoading: apiLoading, syncWithGoogleSheets } = useGeminiApi();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -138,6 +140,24 @@ const CSVEditor = () => {
     }
   };
 
+  const handleSyncWithGoogleSheets = async () => {
+    if (!id || tableData.length === 0) {
+      toast.error("No data available to sync");
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      await syncWithGoogleSheets(id, tableData);
+      toast.success("Data synced with Google Sheets successfully");
+    } catch (err) {
+      console.error("Error syncing with Google Sheets:", err);
+      toast.error("Failed to sync with Google Sheets");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleDownloadXLSX = () => {
     if (!tableData || tableData.length === 0) {
       toast.error("No data available to download");
@@ -210,6 +230,19 @@ const CSVEditor = () => {
           </Button>
           
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-1"
+              onClick={handleSyncWithGoogleSheets}
+              disabled={isSyncing || !tableData || tableData.length === 0}
+            >
+              {isSyncing ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <CloudSync className="h-4 w-4" />
+              )}
+              Sync with Google Sheets
+            </Button>
             <Button 
               variant="outline" 
               className="flex items-center gap-1"
