@@ -1,68 +1,30 @@
 
-import { GoogleSpreadsheet, GoogleSpreadsheetRow } from 'google-spreadsheet';
-import { JWT } from 'google-auth-library';
-import { jwtDecode } from 'jwt-decode';
+import { GoogleSpreadsheet } from 'google-spreadsheet';
 import config from '../config/api';
 
 // This class handles all Google Sheets operations
 class GoogleSheetsService {
   private doc: GoogleSpreadsheet | null = null;
   private initialized = false;
-  private serviceAccountEmail = '';
-  private privateKey = '';
+  private mockMode = true; // Always use mock mode in browser environment
 
   constructor() {
-    // These would ideally come from environment variables
-    // For demonstration, we'll use placeholder values
-    this.serviceAccountEmail = 'service-account@project-id.iam.gserviceaccount.com';
-    this.privateKey = '-----BEGIN PRIVATE KEY-----\nYour private key here\n-----END PRIVATE KEY-----';
+    // In a browser environment, we'll use mock functionality
+    // The actual Google Sheets API calls would be handled by a backend service
+    console.log('GoogleSheetsService initialized in mock mode for browser environment');
   }
 
   async init(sheetId: string = '') {
     if (this.initialized && this.doc) return this.doc;
 
     try {
-      // Create a new sheet if sheetId is not provided
-      if (!sheetId) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const title = `Upload_Results_${timestamp}`;
-        
-        // Create a new document with a title
-        // For demonstration purposes, we'll use a dummy ID
-        const dummyId = 'dummy-id';
-        
-        // Create the Google Spreadsheet instance
-        // Note: The constructor only takes the spreadsheetId in v4
-        this.doc = new GoogleSpreadsheet(dummyId);
-        
-        // In a real implementation, you'd use the Google Drive API to create the document
-        console.log(`In a real implementation, we would create a new spreadsheet titled: ${title}`);
-      } else {
-        // Create the Google Spreadsheet instance with the provided ID
-        this.doc = new GoogleSpreadsheet(sheetId);
-      }
-
-      // Authenticate with the Google Sheets API
-      if (this.doc) {
-        // Create a JWT client
-        const serviceAccountAuth = new JWT({
-          email: this.serviceAccountEmail,
-          key: this.privateKey,
-          scopes: [
-            'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/drive.file',
-          ],
-        });
-
-        // In v4 of google-spreadsheet, we authenticate using serviceAccountAuth
-        await this.doc.useServiceAccountAuth({
-          client_email: this.serviceAccountEmail,
-          private_key: this.privateKey,
-        });
-
-        // Load document properties and sheets
-        await this.doc.loadInfo();
-      }
+      // For browser environment, we create a mock document instance
+      const mockSheetId = sheetId || 'mock-sheet-id';
+      this.doc = new GoogleSpreadsheet(mockSheetId);
+      
+      // In browser, we would typically make API calls to a backend service
+      // that handles the actual Google Sheets API authentication and operations
+      console.log(`Initialized mock Google Sheets document with ID: ${mockSheetId}`);
       
       this.initialized = true;
       return this.doc;
@@ -74,17 +36,17 @@ class GoogleSheetsService {
 
   async createSheet(title: string) {
     try {
-      const doc = await this.init('mock-sheet-id');
-      if (!doc) throw new Error('Failed to initialize document');
-      
-      return await doc.addSheet({ 
-        title, 
+      // For demonstration, we'll return a mock sheet
+      console.log(`Would create sheet titled: ${title} (mock mode)`);
+      return {
+        title,
+        sheetId: 'mock-sheet-id-' + Date.now(),
         headerValues: [
           'Entry_ID', 'DATE', 'PARTICULARS', 'Voucher_BillNo',
           'RECEIPTS_Quantity', 'RECEIPTS_Amount', 'ISSUED_Quantity',
           'ISSUED_Amount', 'BALANCE_Quantity', 'BALANCE_Amount'
         ]
-      });
+      };
     } catch (error) {
       console.error('Error creating sheet:', error);
       throw error;
@@ -93,30 +55,9 @@ class GoogleSheetsService {
 
   async appendRows(sheetTitle: string, rows: any[]) {
     try {
-      const doc = await this.init('mock-sheet-id');
-      if (!doc) throw new Error('Failed to initialize document');
-      
-      let sheet = doc.sheetsByTitle[sheetTitle];
-      
-      if (!sheet) {
-        sheet = await this.createSheet(sheetTitle);
-      }
-
-      // Format rows to match Google Sheets expectations
-      const formattedRows = rows.map(row => ({
-        'Entry_ID': row.Entry_ID,
-        'DATE': row.DATE,
-        'PARTICULARS': row.PARTICULARS,
-        'Voucher_BillNo': row.Voucher_BillNo,
-        'RECEIPTS_Quantity': row.RECEIPTS_Quantity,
-        'RECEIPTS_Amount': row.RECEIPTS_Amount,
-        'ISSUED_Quantity': row.ISSUED_Quantity,
-        'ISSUED_Amount': row.ISSUED_Amount,
-        'BALANCE_Quantity': row.BALANCE_Quantity,
-        'BALANCE_Amount': row.BALANCE_Amount
-      }));
-
-      await sheet.addRows(formattedRows);
+      // For demonstration, we'll log the rows that would be appended
+      console.log(`Would append ${rows.length} rows to sheet "${sheetTitle}" (mock mode)`);
+      console.log('Sample row:', rows[0]);
       return true;
     } catch (error) {
       console.error('Error appending rows:', error);
@@ -126,24 +67,9 @@ class GoogleSheetsService {
 
   async updateRows(sheetTitle: string, rows: any[]) {
     try {
-      // Use a mock sheet ID for demo purposes
-      const mockSheetId = '1Abc123XyZ_exampleSheetId';
-      const doc = await this.init(mockSheetId);
-      if (!doc) throw new Error('Failed to initialize document');
-      
-      let sheet = doc.sheetsByTitle[sheetTitle];
-      
-      if (!sheet) {
-        // For demo purposes, we'll create a sheet with this title
-        console.log(`Sheet "${sheetTitle}" would be created in a real implementation`);
-        sheet = await this.createSheet(sheetTitle);
-      }
-
-      console.log(`Updating ${rows.length} rows in sheet "${sheetTitle}"`);
-      
-      // In a real implementation, we would update the sheet rows here
-      // For demo purposes, we'll just simulate success
-      
+      // For demonstration, we'll log the rows that would be updated
+      console.log(`Would update ${rows.length} rows in sheet "${sheetTitle}" (mock mode)`);
+      console.log('Sample row:', rows[0]);
       return true;
     } catch (error) {
       console.error('Error updating rows:', error);
@@ -154,19 +80,8 @@ class GoogleSheetsService {
   // Get all data from a sheet
   async getSheetData(sheetTitle: string) {
     try {
-      // Use a mock sheet ID for demo purposes
-      const mockSheetId = '1Abc123XyZ_exampleSheetId';
-      const doc = await this.init(mockSheetId);
-      if (!doc) throw new Error('Failed to initialize document');
-      
-      let sheet = doc.sheetsByTitle[sheetTitle];
-      
-      if (!sheet) {
-        throw new Error(`Sheet "${sheetTitle}" not found`);
-      }
-      
-      // For demo purposes, we'll return mock data
-      console.log(`Getting data from sheet "${sheetTitle}"`);
+      // For demonstration, we'll return mock data
+      console.log(`Getting mock data from sheet "${sheetTitle}"`);
       
       return [
         {
