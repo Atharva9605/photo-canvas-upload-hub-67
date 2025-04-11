@@ -20,6 +20,9 @@ class GoogleSheetsService {
     try {
       // For browser environment, we create a mock document instance
       const mockSheetId = sheetId || 'mock-sheet-id';
+      
+      // The GoogleSpreadsheet constructor expects only a string ID now
+      // We're passing the mockSheetId as the only argument
       this.doc = new GoogleSpreadsheet(mockSheetId);
       
       // In browser, we would typically make API calls to a backend service
