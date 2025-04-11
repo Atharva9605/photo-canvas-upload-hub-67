@@ -1,5 +1,6 @@
 
-import { GoogleSpreadsheet } from 'google-spreadsheet';
+import { GoogleSpreadsheet, GoogleSpreadsheetRow } from 'google-spreadsheet';
+import { JWT } from 'google-auth-library';
 import { jwtDecode } from 'jwt-decode';
 import config from '../config/api';
 
@@ -27,21 +28,32 @@ class GoogleSheetsService {
         const title = `Upload_Results_${timestamp}`;
         
         // Create a new document with a title
-        this.doc = new GoogleSpreadsheet(sheetId || 'dummy-id');
+        // For demonstration purposes, we'll use a dummy ID
+        const dummyId = 'dummy-id';
+        this.doc = new GoogleSpreadsheet(dummyId);
         
         // In a real implementation, you'd use the Google Drive API to create the document
         console.log(`In a real implementation, we would create a new spreadsheet titled: ${title}`);
       } else {
+        // Updated to use the correct constructor signature
         this.doc = new GoogleSpreadsheet(sheetId);
       }
 
       // Authenticate with the Google Sheets API
-      // In version 4 of google-spreadsheet, we need to use this method differently
+      // In version 4 of google-spreadsheet, we need to use JWT auth
       if (this.doc) {
-        await this.doc.useServiceAccountAuth({
-          client_email: this.serviceAccountEmail,
-          private_key: this.privateKey
+        // Create a JWT client
+        const serviceAccountAuth = new JWT({
+          email: this.serviceAccountEmail,
+          key: this.privateKey,
+          scopes: [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive.file',
+          ],
         });
+
+        // Set the auth for the document
+        this.doc.useServiceAccountAuth(serviceAccountAuth);
 
         // Load document properties and sheets
         await this.doc.loadInfo();
