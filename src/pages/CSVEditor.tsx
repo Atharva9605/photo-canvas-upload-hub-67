@@ -5,11 +5,12 @@ import Layout from '@/components/Layout';
 import EditableTable from '@/components/EditableTable';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { ArrowLeft, Download, Save, Cloud } from 'lucide-react';
+import { ArrowLeft, Download, Save, Cloud, Database } from 'lucide-react';
 import { useGeminiApi } from '@/hooks/useGeminiApi';
 import * as XLSX from 'xlsx';
 import { googleSheetsService } from '@/services/googleSheetsService';
-import { Skeleton } from '@/components/ui/skeleton';
+import { tallyService } from '@/services/tallyService';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface RouteState {
   data: {
@@ -29,6 +30,7 @@ const CSVEditor = () => {
   const [data, setData] = useState<any[]>([]);
   const [originalData, setOriginalData] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncingTally, setIsSyncingTally] = useState(false);
   const [fileName, setFileName] = useState('data.xlsx');
   const [fileId, setFileId] = useState<string | null>(null);
 
@@ -108,6 +110,24 @@ const CSVEditor = () => {
     }
   };
 
+  const handleSyncWithTally = async () => {
+    if (data.length === 0) {
+      toast.error('No data available to sync with Tally.');
+      return;
+    }
+
+    setIsSyncingTally(true);
+    try {
+      await tallyService.syncWithTally(data);
+      toast.success("Data synced with Tally ERP");
+    } catch (error) {
+      console.error("Error syncing with Tally:", error);
+      toast.error("Failed to sync with Tally");
+    } finally {
+      setIsSyncingTally(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="container mx-auto py-6">
@@ -116,7 +136,7 @@ const CSVEditor = () => {
             <h1 className="text-2xl font-bold">{fileName}</h1>
             <p className="text-muted-foreground">{data.length} rows</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -133,7 +153,7 @@ const CSVEditor = () => {
               className="flex items-center gap-1"
             >
               <Download className="h-4 w-4" />
-              Download XLSX
+              Export XLSX
             </Button>
             <Button
               size="sm"
@@ -163,37 +183,35 @@ const CSVEditor = () => {
               <Cloud className="h-4 w-4" />
               Sync with Google
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncWithTally}
+              disabled={isSyncingTally || isLoading}
+              className="flex items-center gap-1"
+            >
+              <Database className="h-4 w-4" />
+              {isSyncingTally ? (
+                <>
+                  <LoadingSpinner />
+                  Syncing...
+                </>
+              ) : (
+                "Sync with Tally"
+              )}
+            </Button>
           </div>
         </div>
 
-        <EditableTable data={data} onDataChange={handleDataChange} onSave={handleSave} />
+        <EditableTable 
+          data={data} 
+          onDataChange={handleDataChange} 
+          onSave={handleSave} 
+          title="Spreadsheet Data"
+        />
       </div>
     </Layout>
   );
 };
-
-// LoadingSpinner component
-const LoadingSpinner = () => (
-  <svg
-    className="h-4 w-4 animate-spin"
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-  >
-    <circle
-      className="opacity-25"
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-    ></circle>
-    <path
-      className="opacity-75"
-      fill="currentColor"
-      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-    ></path>
-  </svg>
-);
 
 export default CSVEditor;

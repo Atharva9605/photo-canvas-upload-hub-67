@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -22,32 +21,25 @@ const CSVDisplay = () => {
   const [dataId, setDataId] = useState<string>('');
 
   useEffect(() => {
-    // Process data from location state
     if (location.state?.data) {
       try {
         const jsonData = location.state.data;
         const dataIdentifier = location.state.dataId || uuidv4();
         setDataId(dataIdentifier);
         
-        // Set filename with timestamp
         const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
         setFileName(`upload-results-${timestamp}.csv`);
         
-        // If data is already an array, use it directly, otherwise wrap it in an array
         const dataArray = Array.isArray(jsonData) ? jsonData : [jsonData];
         
-        // Auto-detect schema from data or use default schema
         const schema = location.state.schema || detectSchema(dataArray) || defaultSchema;
         
-        // Convert JSON to CSV using schema
         const csv = jsonToCSV(dataArray, schema);
         setCsvData(csv);
         
-        // Convert CSV back to JSON for table display
         const parsedData = csvToJSON(csv);
         setTableData(parsedData);
         
-        // If there's no dataId from state, save this data for the first time
         if (!location.state.dataId) {
           saveInitialData(dataArray, dataIdentifier);
         }
@@ -63,11 +55,9 @@ const CSVDisplay = () => {
     setIsLoading(false);
   }, [location.state, navigate]);
 
-  // Function to detect schema from data
   const detectSchema = (data: any[]) => {
     if (!data || data.length === 0) return null;
     
-    // Get all unique keys from all objects in the array
     const allKeys = new Set<string>();
     data.forEach(item => {
       Object.keys(item).forEach(key => allKeys.add(key));
@@ -76,7 +66,6 @@ const CSVDisplay = () => {
     return Array.from(allKeys);
   };
 
-  // Function to save initial data to database
   const saveInitialData = async (data: any[], id: string) => {
     try {
       const { error } = await supabase
@@ -103,7 +92,6 @@ const CSVDisplay = () => {
     }
     
     try {
-      // Create blob and trigger download
       const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       
@@ -113,7 +101,6 @@ const CSVDisplay = () => {
       document.body.appendChild(link);
       link.click();
       
-      // Clean up
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
@@ -124,7 +111,7 @@ const CSVDisplay = () => {
     }
   };
 
-  const handleSaveChanges = async (updatedData: Record<string, string>[]) => {
+  const handleSaveData = async (updatedData: Record<string, string>[]) => {
     if (!dataId) {
       toast.error("Cannot save changes: missing data identifier");
       return;
@@ -133,7 +120,6 @@ const CSVDisplay = () => {
     setIsSaving(true);
     
     try {
-      // Update the database record
       const { error } = await supabase
         .from('csv_data')
         .update({
@@ -144,10 +130,8 @@ const CSVDisplay = () => {
         
       if (error) throw error;
       
-      // Update local state
       setTableData(updatedData);
       
-      // Update CSV data
       const updatedCsv = jsonToCSV(updatedData);
       setCsvData(updatedCsv);
       
@@ -205,9 +189,10 @@ const CSVDisplay = () => {
         ) : tableData.length > 0 ? (
           <EditableTable 
             data={tableData} 
-            onSave={handleSaveChanges}
+            onDataChange={(newData) => setTableData(newData)} 
+            onSave={handleSaveData}
             onDownload={handleDownloadCSV}
-            title="Edit CSV Data"
+            title="Data Preview"
             editable={true}
           />
         ) : (
@@ -228,7 +213,6 @@ const CSVDisplay = () => {
           </Card>
         )}
 
-        {/* File information */}
         {csvData && (
           <Card className="mt-6">
             <CardHeader className="flex flex-row items-center justify-between">
