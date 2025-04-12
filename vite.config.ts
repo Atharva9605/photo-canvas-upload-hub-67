@@ -18,17 +18,14 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      // Add buffer and process polyfills
-      "buffer": "buffer",
-      "process": "process"
+      "buffer": "buffer/",
+      "process": "process/browser",
     },
   },
   define: {
-    // Add Node.js polyfills with better values
-    'process.env': process.env,
+    'process.env': {},
     'process.browser': true,
     'process.version': JSON.stringify('16.0.0'),
-    'Buffer': ['buffer', 'Buffer'],
     'global': 'globalThis',
   },
   optimizeDeps: {

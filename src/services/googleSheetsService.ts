@@ -1,13 +1,7 @@
-
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
 import config from '../config/api';
-
-// Polyfill Buffer for browser environments
-if (typeof window !== 'undefined' && typeof global === 'undefined') {
-  (window as any).Buffer = require('buffer/').Buffer;
-}
 
 // This class handles all Google Sheets operations
 class GoogleSheetsService {

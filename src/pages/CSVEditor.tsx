@@ -37,6 +37,7 @@ const CSVEditor = () => {
   const [fileId, setFileId] = useState<string | null>(null);
   const [sheetUrl, setSheetUrl] = useState<string | null>(null);
   const [isLoadingSheet, setIsLoadingSheet] = useState(false);
+  const [isBrowser] = useState(() => typeof window !== 'undefined');
 
   useEffect(() => {
     const routeState = location.state as RouteState | null;
@@ -111,6 +112,13 @@ const CSVEditor = () => {
   const handleSyncWithGoogle = async () => {
     if (!fileId) {
       toast.error('No file ID available to sync.');
+      return;
+    }
+
+    // Prevent Google Sheets sync in browser environments
+    if (isBrowser) {
+      toast.info("Google Sheets sync is simulated in browser environments");
+      setSheetUrl(googleSheetsService.getEmbedUrl(fileId));
       return;
     }
 
