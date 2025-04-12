@@ -5,7 +5,7 @@ import Layout from '@/components/Layout';
 import EditableTable from '@/components/EditableTable';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { ArrowLeft, Download, Save, Cloud, Database, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Download, Save, Cloud, Database, ExternalLink, RefreshCw } from 'lucide-react';
 import { useGeminiApi } from '@/hooks/useGeminiApi';
 import * as XLSX from 'xlsx';
 import { googleSheetsService } from '@/services/googleSheetsService';
@@ -44,6 +44,7 @@ const CSVEditor = () => {
   const [fileId, setFileId] = useState<string | null>(null);
   const [sheetUrl, setSheetUrl] = useState<string | null>(null);
   const [isLoadingSheet, setIsLoadingSheet] = useState(false);
+  const [isLoadingSheetData, setIsLoadingSheetData] = useState(false);
 
   useEffect(() => {
     const routeState = location.state as RouteState | null;
@@ -173,6 +174,7 @@ const CSVEditor = () => {
       
       if (result.sheetUrl) {
         setSheetUrl(result.sheetUrl);
+        localStorage.setItem('lastSheetUrl', result.sheetUrl);
       }
       
     } catch (sheetErr) {
@@ -206,6 +208,42 @@ const CSVEditor = () => {
       window.open(sheetUrl, '_blank');
     } else {
       toast.error('No spreadsheet URL available');
+    }
+  };
+
+  const fetchSheetData = async () => {
+    if (!sheetUrl) {
+      toast.error('No spreadsheet URL available');
+      return;
+    }
+
+    setIsLoadingSheetData(true);
+    try {
+      // Extract spreadsheet ID from the URL
+      const spreadsheetId = googleSheetsService.extractIdFromUrl(sheetUrl);
+      
+      if (!spreadsheetId) {
+        throw new Error('Could not extract spreadsheet ID from URL');
+      }
+      
+      // Set the spreadsheet ID and initialize
+      googleSheetsService.setSpreadsheetId(spreadsheetId);
+      
+      // Get the data from the first sheet (using 'Sheet1' as default)
+      const sheetData = await googleSheetsService.getSheetData('Sheet1');
+      
+      if (sheetData && sheetData.length > 0) {
+        setData(sheetData);
+        setOriginalData(sheetData);
+        toast.success('Sheet data loaded successfully');
+      } else {
+        toast.warning('Sheet contains no data or could not be loaded');
+      }
+    } catch (error) {
+      console.error('Error fetching sheet data:', error);
+      toast.error('Failed to load sheet data: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsLoadingSheetData(false);
     }
   };
 
@@ -291,6 +329,27 @@ const CSVEditor = () => {
               <ExternalLink className="h-4 w-4" />
               Open Spreadsheet
             </Button>
+            {sheetUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchSheetData}
+                disabled={isLoadingSheetData}
+                className="flex items-center gap-1"
+              >
+                {isLoadingSheetData ? (
+                  <>
+                    <LoadingSpinner />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    Load Sheet Data
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
 

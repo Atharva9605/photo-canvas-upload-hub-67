@@ -23,9 +23,10 @@ class GoogleSheetsService {
       // Use provided sheetId or fallback to the default one
       const spreadsheetId = sheetId || this.spreadsheetId || 'govigyan';
       
-      // Create Google Spreadsheet instance with required options parameter
-      // The constructor requires 2 parameters: spreadsheetId and an options object
-      this.doc = new GoogleSpreadsheet(spreadsheetId, {});
+      // Create Google Spreadsheet instance with the correct type of options
+      this.doc = new GoogleSpreadsheet(spreadsheetId, { 
+        apiKey: config.googleApiKey // Pass apiKey or we can use auth below
+      });
       
       // Authentication method
       try {
@@ -241,6 +242,11 @@ class GoogleSheetsService {
   getEmbedUrl(spreadsheetId: string = '') {
     const id = spreadsheetId || this.spreadsheetId || 'govigyan';
     return `https://docs.google.com/spreadsheets/d/${id}/preview`;
+  }
+
+  extractIdFromUrl(url: string): string | null {
+    const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    return match ? match[1] : null;
   }
 
   setSpreadsheetId(id: string) {
