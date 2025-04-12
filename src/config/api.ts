@@ -2,7 +2,7 @@
 // API configuration values
 const config = {
   // Base API URL hardcoded as per user request
-  GEMINI_API_URL: "https://gemini-govigyan.onrender.com",
+  GEMINI_API_URL: "https://govigyan-gemini.onrender.com",
   
   // Increased timeout for API requests in milliseconds (2 minutes)
   API_TIMEOUT: 120000,

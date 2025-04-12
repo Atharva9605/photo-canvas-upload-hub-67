@@ -24,9 +24,8 @@ class GoogleSheetsService {
       const spreadsheetId = sheetId || this.spreadsheetId || 'govigyan';
       
       // Create Google Spreadsheet instance with the correct type of options
-      this.doc = new GoogleSpreadsheet(spreadsheetId, { 
-        apiKey: config.googleApiKey // Pass apiKey or we can use auth below
-      });
+      // Instead of using googleApiKey (which doesn't exist), we'll use jwt auth only
+      this.doc = new GoogleSpreadsheet(spreadsheetId);
       
       // Authentication method
       try {
