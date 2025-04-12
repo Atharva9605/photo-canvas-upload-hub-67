@@ -1,3 +1,4 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -18,5 +19,12 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  define: {
+    // Add Node.js polyfills
+    'process.env': {},
+    'process.browser': true,
+    'process.version': JSON.stringify('16.0.0'),
+    'global': {},
   },
 }));
