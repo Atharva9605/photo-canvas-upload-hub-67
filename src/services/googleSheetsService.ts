@@ -1,3 +1,4 @@
+
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
@@ -22,9 +23,9 @@ class GoogleSheetsService {
       // Use provided sheetId or fallback to the default one
       const spreadsheetId = sheetId || this.spreadsheetId || 'govigyan';
       
-      // Create Google Spreadsheet instance
-      // For the Google Spreadsheet constructor issue: it only needs one argument
-      this.doc = new GoogleSpreadsheet(spreadsheetId);
+      // Create Google Spreadsheet instance with required options parameter
+      // The constructor requires 2 parameters: spreadsheetId and an options object
+      this.doc = new GoogleSpreadsheet(spreadsheetId, {});
       
       // Authentication method
       try {
@@ -34,7 +35,7 @@ class GoogleSheetsService {
           private_key: this.privateKey
         };
         
-        // Need to use type assertion because of TypeScript errors with the library
+        // Use type assertion because of TypeScript errors with the library
         await (this.doc as any).useServiceAccountAuth(credentials);
         
         console.log('Authentication successful with Google Sheets');
