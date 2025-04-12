@@ -1,5 +1,5 @@
 
-import { GoogleSpreadsheet } from 'google-spreadsheet';
+import { GoogleSpreadsheet, ServiceAccountCredentials } from 'google-spreadsheet';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
 import config from '../config/api';
@@ -27,15 +27,17 @@ class GoogleSheetsService {
       // Use provided sheetId or fallback to the default one
       const spreadsheetId = sheetId || this.spreadsheetId || 'mock-sheet-id';
       
-      // The GoogleSpreadsheet constructor expects the spreadsheet ID
-      this.doc = new GoogleSpreadsheet(spreadsheetId);
+      // Create a new GoogleSpreadsheet instance with the required parameters
+      // The library requires a document ID and an options object
+      this.doc = new GoogleSpreadsheet(spreadsheetId, {
+        // This empty object is required as the second parameter
+      });
       
-      // Authenticate with the Google Sheets API
-      // Fix: Initialize authentication with the correct parameters
+      // Authenticate with the Google Sheets API using the updated method signature
       await this.doc.useServiceAccountAuth({
         client_email: this.serviceAccountEmail,
         private_key: this.privateKey
-      });
+      } as ServiceAccountCredentials);
 
       // Load document properties and sheets
       await this.doc.loadInfo();
