@@ -1,6 +1,6 @@
 
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route, Navigate } from "react-router-dom";
@@ -12,18 +12,11 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ResetPassword from "./pages/ResetPassword";
-import Home from "./pages/Home";
 import Upload from "./pages/Upload";
-import AllFiles from "./pages/AllFiles";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
-import Spreadsheets from "./pages/Spreadsheets";
-import AnalysisResults from "./pages/AnalysisResults";
-import DownloadCSV from "./pages/DownloadCSV";
-import CSVDisplay from "./pages/CSVDisplay";
 import CSVEditor from "./pages/CSVEditor";
-import SavedCSVList from "./pages/SavedCSVList";
 
 const queryClient = new QueryClient();
 
@@ -68,17 +61,9 @@ const App = () => {
             <Route path="/signup" element={<Signup />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             
-            {/* Protected Routes */}
+            {/* Main Routes - these match the requirements */}
             <Route 
               path="/" 
-              element={
-                <ProtectedRoute>
-                  <Home />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/upload" 
               element={
                 <ProtectedRoute>
                   <Upload />
@@ -86,13 +71,15 @@ const App = () => {
               } 
             />
             <Route 
-              path="/all-files" 
+              path="/results" 
               element={
                 <ProtectedRoute>
-                  <AllFiles />
+                  <CSVEditor />
                 </ProtectedRoute>
               } 
             />
+            
+            {/* Additional routes that might be needed */}
             <Route 
               path="/profile" 
               element={
@@ -102,50 +89,10 @@ const App = () => {
               } 
             />
             <Route 
-              path="/spreadsheets" 
-              element={
-                <ProtectedRoute>
-                  <Spreadsheets />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/analysis/:id" 
-              element={
-                <ProtectedRoute>
-                  <AnalysisResults />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/download-csv/:id" 
-              element={
-                <ProtectedRoute>
-                  <DownloadCSV />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/csv-display" 
-              element={
-                <ProtectedRoute>
-                  <CSVDisplay />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
               path="/csv-editor/:id" 
               element={
                 <ProtectedRoute>
                   <CSVEditor />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/saved-csvs" 
-              element={
-                <ProtectedRoute>
-                  <SavedCSVList />
                 </ProtectedRoute>
               } 
             />

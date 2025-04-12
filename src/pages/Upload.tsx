@@ -1,3 +1,4 @@
+
 import { useState, useRef, ChangeEvent, DragEvent, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -38,8 +39,9 @@ const Upload = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [selectedFilesForPdf, setSelectedFilesForPdf] = useState<boolean[]>([]);
+  const [sheetUrl, setSheetUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { isLoading, error, analyzeImage, syncWithGoogleSheets } = useGeminiApi();
+  const { isLoading, processFiles } = useGeminiApi();
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 640px)");
 
@@ -209,99 +211,67 @@ const Upload = () => {
     setUploadError(null);
 
     try {
-      toast.info("Uploading files to storage...");
+      // For API integration with the Flask backend
+      const formData = new FormData();
+      files.forEach(file => formData.append('files', file));
       
-      const uploadedFiles = [];
+      // Use the Flask API endpoint
+      toast.info("Processing files, this may take a moment...");
       
-      for (const file of files) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${uuidv4()}.${fileExt}`;
-        const filePath = `uploads/${fileName}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('user_files')
-          .upload(filePath, file);
-        
-        if (uploadError) throw uploadError;
-        
-        const { error: dbError, data: fileData } = await supabase
-          .from('user_uploads')
-          .insert({
-            file_name: file.name,
-            file_type: file.type,
-            file_size: file.size,
-            storage_path: filePath
-          })
-          .select('id')
-          .single();
-        
-        if (dbError) throw dbError;
-        
-        uploadedFiles.push({
-          id: fileData.id,
-          file: file,
-          path: filePath
-        });
+      const response = await fetch('https://govigyan-gemini.onrender.com/upload-flash', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
       }
       
-      toast.info("Files uploaded, analyzing with Gemini AI...");
+      const data = await response.json();
       
-      const pdfFile = files.find(file => file.type === 'application/pdf');
-      const fileToProcess = pdfFile || files[0];
-      
-      const results = await analyzeImage(fileToProcess);
-      console.log("Analysis results:", results);
-      
-      let extractedData = [];
-      
-      if (results?.extractedData && Array.isArray(results.extractedData)) {
-        extractedData = results.extractedData;
-      } else if (results?.data && Array.isArray(results.data)) {
-        extractedData = results.data;
-      }
-      
-      const formattedData = extractedData.map((item: any, index: number) => ({
-        Entry_ID: item.Entry_ID || index + 1,
-        DATE: item.DATE || new Date().toISOString().split('T')[0],
-        PARTICULARS: item.PARTICULARS || '',
-        Voucher_BillNo: item.Voucher_BillNo || '',
-        RECEIPTS_Quantity: Number(item.RECEIPTS_Quantity || 0),
-        RECEIPTS_Amount: Number(item.RECEIPTS_Amount || 0),
-        ISSUED_Quantity: Number(item.ISSUED_Quantity || 0),
-        ISSUED_Amount: Number(item.ISSUED_Amount || 0),
-        BALANCE_Quantity: Number(item.BALANCE_Quantity || 0),
-        BALANCE_Amount: Number(item.BALANCE_Amount || 0)
-      }));
-      
-      if (formattedData.length > 0) {
-        try {
-          const fileId = uploadedFiles[0].id;
-          await syncWithGoogleSheets(fileId, formattedData);
-          toast.success("Data synced with Google Sheets");
-        } catch (sheetError) {
-          console.error("Google Sheets sync error:", sheetError);
-          toast.error("Failed to sync with Google Sheets");
-        }
+      // Store the sheet URL from the response
+      if (data.sheet_url) {
+        setSheetUrl(data.sheet_url);
+        localStorage.setItem('lastSheetUrl', data.sheet_url);
       }
       
       setUploadSuccess(true);
-      toast.success("Files successfully uploaded and analyzed");
+      toast.success(data.message || "Files processed successfully");
       
-      navigate('/csv-display', { 
-        state: { 
-          data: {
-            extractedData: formattedData,
-            fileId: uploadedFiles[0].id,
-            fileName: fileToProcess.name,
-            sheetTitle: `Data_Sheet_${uploadedFiles[0].id}`
+      // Get results from the server and redirect to results page
+      try {
+        const resultsResponse = await fetch('https://govigyan-gemini.onrender.com/results');
+        if (!resultsResponse.ok) {
+          throw new Error('Failed to fetch results');
+        }
+        
+        const resultsData = await resultsResponse.json();
+        
+        navigate('/results', { 
+          state: { 
+            data: {
+              extractedData: resultsData,
+              fileName: files[0].name,
+              sheetUrl: data.sheet_url
+            } 
           } 
-        } 
-      });
-      
+        });
+      } catch (resultsError) {
+        console.error('Error fetching results:', resultsError);
+        // Still navigate to results page, it will fetch data there
+        navigate('/results', { 
+          state: { 
+            data: {
+              sheetUrl: data.sheet_url
+            } 
+          } 
+        });
+      }
     } catch (err) {
       console.error("Upload error:", err);
       setUploadError(err instanceof Error ? err.message : "An unknown error occurred");
-      toast.error("Failed to upload files");
+      toast.error("Failed to upload files: " + (err instanceof Error ? err.message : "Unknown error"));
     } finally {
       setIsUploading(false);
     }
@@ -485,15 +455,15 @@ const Upload = () => {
                     disabled={files.length === 0 || isUploading || isLoading}
                   >
                     {isUploading || isLoading ? (
-                      <span className="flex items-center gap-1">
+                      <>
                         <LoadingSpinner />
                         Processing...
-                      </span>
+                      </>
                     ) : (
-                      <span className="flex items-center gap-1">
+                      <>
                         <ArrowRight className="h-4 w-4" />
                         Upload & Analyze
-                      </span>
+                      </>
                     )}
                   </Button>
                   <VoiceUpload onCommand={handleCommand} />
@@ -544,21 +514,20 @@ const Upload = () => {
               <div>
                 <h3 className="mb-2 text-lg font-medium">Process</h3>
                 <ol className="ml-6 list-decimal space-y-2 text-muted-foreground">
-                  <li>Upload your files securely to our storage</li>
-                  <li>Gemini AI analyzes the content</li>
-                  <li>Results are displayed as spreadsheet data</li>
-                  <li>Data is synced with Google Sheets</li>
-                  <li>Edit and save changes back to database</li>
+                  <li>Upload your files securely to our server</li>
+                  <li>Files are processed with Gemini AI</li>
+                  <li>Data is extracted and organized</li>
+                  <li>Results are displayed for editing</li>
+                  <li>Google Sheet is created for sharing</li>
                 </ol>
               </div>
               
               <Separator />
               
               <div>
-                <h3 className="mb-2 text-lg font-medium">Privacy & Security</h3>
+                <h3 className="mb-2 text-lg font-medium">API Integration</h3>
                 <p className="text-muted-foreground">
-                  Files are securely stored and only accessible to you. 
-                  Processing happens on our secure servers.
+                  This app connects to <span className="font-mono text-xs">https://govigyan-gemini.onrender.com</span> for processing files and creating Google Sheets.
                 </p>
               </div>
             </CardContent>

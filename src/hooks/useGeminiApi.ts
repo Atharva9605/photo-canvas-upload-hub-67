@@ -7,6 +7,7 @@ import { googleSheetsService } from "../services/googleSheetsService";
 export function useGeminiApi() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [sheetUrl, setSheetUrl] = useState<string | null>(null);
 
   // Function to analyze an image using Gemini API
   const analyzeImage = async (file: File, options?: any) => {
@@ -15,6 +16,37 @@ export function useGeminiApi() {
     
     try {
       toast.info("Processing with Gemini AI, this may take up to 2 minutes for large files...");
+      
+      // For API integration with the Flask backend
+      if (options?.useFlaskApi) {
+        const formData = new FormData();
+        formData.append('files', file);
+        
+        // Use the Flask API endpoint
+        const response = await fetch('https://govigyan-gemini.onrender.com/upload-flash', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Upload failed');
+        }
+        
+        const data = await response.json();
+        
+        // Store the sheet URL from the response
+        if (data.sheet_url) {
+          setSheetUrl(data.sheet_url);
+          localStorage.setItem('lastSheetUrl', data.sheet_url);
+        }
+        
+        toast.success(data.message || "Files processed successfully");
+        setIsLoading(false);
+        return data;
+      }
+      
+      // Default Gemini API
       const result = await geminiApi.analyzeImage(file, options);
       setIsLoading(false);
       return result;
@@ -31,6 +63,7 @@ export function useGeminiApi() {
       
       setError(err instanceof Error ? err : new Error(errorMessage));
       setIsLoading(false);
+      toast.error(`Failed to process: ${errorMessage}`);
       throw err;
     }
   };
@@ -73,12 +106,43 @@ export function useGeminiApi() {
     setError(null);
     
     try {
+      // For Flask API integration
+      if (files.length > 0) {
+        const formData = new FormData();
+        files.forEach(file => formData.append('files', file));
+        
+        // Use the Flask API endpoint
+        const response = await fetch('https://govigyan-gemini.onrender.com/upload-flash', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Upload failed');
+        }
+        
+        const data = await response.json();
+        
+        // Store the sheet URL from the response
+        if (data.sheet_url) {
+          setSheetUrl(data.sheet_url);
+          localStorage.setItem('lastSheetUrl', data.sheet_url);
+        }
+        
+        toast.success(data.message || "Files processed successfully");
+        setIsLoading(false);
+        return data;
+      }
+      
+      // Default processing
       const result = await geminiApi.processFiles(files);
       setIsLoading(false);
       return result;
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Unknown error occurred"));
       setIsLoading(false);
+      toast.error(`Failed to process files: ${err instanceof Error ? err.message : 'Unknown error'}`);
       throw err;
     }
   };
@@ -137,21 +201,23 @@ export function useGeminiApi() {
     setError(null);
     
     try {
-      const result = await geminiApi.updateCsvData(id, data);
+      // For Flask API integration
+      const response = await fetch('https://govigyan-gemini.onrender.com/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
       
-      // Sync with Google Sheets
-      try {
-        const sheetTitle = `Data_Sheet_${id}`;
-        await googleSheetsService.updateRows(sheetTitle, data);
-        toast.success("Data synced with Google Sheets");
-      } catch (sheetErr) {
-        console.error("Error syncing with Google Sheets:", sheetErr);
-        toast.error("Failed to sync with Google Sheets");
+      if (!response.ok) {
+        throw new Error('Failed to update data');
       }
       
+      toast.success("Changes saved successfully");
       setIsLoading(false);
-      return result;
+      return { success: true };
     } catch (err) {
+      console.error('Error updating data:', err);
+      toast.error(`Failed to save changes: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setError(err instanceof Error ? err : new Error("Unknown error occurred"));
       setIsLoading(false);
       throw err;
@@ -164,12 +230,19 @@ export function useGeminiApi() {
     setError(null);
     
     try {
-      const result = await geminiApi.getAllCsvData();
+      // Use Flask API endpoint to fetch results
+      const response = await fetch('https://govigyan-gemini.onrender.com/results');
+      if (!response.ok) {
+        throw new Error('Failed to load data');
+      }
+      
+      const data = await response.json();
       setIsLoading(false);
-      return result;
+      return data;
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Unknown error occurred"));
       setIsLoading(false);
+      toast.error(`Failed to load data: ${err instanceof Error ? err.message : 'Unknown error'}`);
       throw err;
     }
   };
@@ -180,20 +253,49 @@ export function useGeminiApi() {
     setError(null);
     
     try {
-      const sheetTitle = `Data_Sheet_${id}`;
-      await googleSheetsService.appendRows(sheetTitle, data);
+      // Use Flask API endpoint to export to sheet
+      const response = await fetch('https://govigyan-gemini.onrender.com/export-to-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to export to Google Sheets');
+      }
+      
+      const result = await response.json();
+      
+      if (result.link) {
+        setSheetUrl(result.link);
+        localStorage.setItem('lastSheetUrl', result.link);
+        toast.success(`Data exported to Google Sheets: ${result.link}`);
+      } else {
+        toast.success("Data exported to Google Sheets");
+      }
+      
       setIsLoading(false);
-      return true;
+      return { success: true, sheetUrl: result.link };
     } catch (err) {
+      console.error("Error syncing with Google Sheets:", err);
+      toast.error("Failed to sync with Google Sheets");
       setError(err instanceof Error ? err : new Error("Unknown error occurred"));
       setIsLoading(false);
       throw err;
     }
   };
 
+  // Function to get the current sheet URL
+  const getSheetUrl = () => {
+    // First check state, then localStorage as fallback
+    return sheetUrl || localStorage.getItem('lastSheetUrl');
+  };
+
   return {
     isLoading,
     error,
+    sheetUrl,
+    getSheetUrl,
     analyzeImage,
     extractDataFromImage,
     getAnalysisResults,
