@@ -1,11 +1,11 @@
 
 // API configuration values
 const config = {
-  // Base API URL from environment variable
-  GEMINI_API_URL: import.meta.env.VITE_API_BASE_URL || "https://gemini-govigyan.onrender.com",
+  // Base API URL hardcoded as per user request
+  GEMINI_API_URL: "https://gemini-govigyan.onrender.com",
   
   // Increased timeout for API requests in milliseconds (2 minutes)
-  API_TIMEOUT: 120000, // Increased from 30000 to 120000
+  API_TIMEOUT: 120000,
   
   // Maximum file size for uploads in bytes (10MB)
   MAX_FILE_SIZE: 10 * 1024 * 1024,
@@ -23,12 +23,24 @@ const config = {
     SYNC_SHEETS: "/sync-sheets"
   },
   
-  // Google Sheets API config
+  // Google Sheets API config with hardcoded values as per user request
   GOOGLE_SHEETS: {
-    API_KEY: "", // Would be provided through environment variables
-    CLIENT_ID: "",
+    API_KEY: "AIzaSyAUWoitjt-MMI2HOYyq3gVj3J6juWrbQds",
+    CLIENT_ID: "113898419795211486802",
     REDIRECT_URI: window.location.origin + "/auth/google/callback"
-  }
+  },
+  
+  // Database config with hardcoded values as per user request
+  DATABASE: {
+    DB_NAME: "govigyan",
+    DB_USER: "govigyan_user",
+    DB_PASSWORD: "1yOT2yAAQ0FO7bL7iKo7C7W26dLFOm2j",
+    DB_HOST: "dpg-cvrp2fili9vc739krvd0-a.oregon-postgres.render.com",
+    DB_PORT: 5432
+  },
+  
+  // Gemini API key
+  GEMINI_API_KEY: "AIzaSyAUWoitjt-MMI2HOYyq3gVj3J6juWrbQds"
 };
 
 export default config;
