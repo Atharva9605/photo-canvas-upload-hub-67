@@ -30,6 +30,7 @@ class GoogleSheetsService {
       this.doc = new GoogleSpreadsheet(spreadsheetId);
       
       // Authenticate with the Google Sheets API
+      // Fix: update to match the correct signature of useServiceAccountAuth
       await this.doc.useServiceAccountAuth({
         client_email: this.serviceAccountEmail,
         private_key: this.privateKey
