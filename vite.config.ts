@@ -1,4 +1,3 @@
-
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -20,10 +19,4 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  define: {
-    // Add this to provide process.env to client-side code
-    'process.env': {
-      NODE_ENV: JSON.stringify(mode)
-    }
-  }
 }));

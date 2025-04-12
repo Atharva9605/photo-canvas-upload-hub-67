@@ -5,14 +5,12 @@ import Layout from '@/components/Layout';
 import EditableTable from '@/components/EditableTable';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { ArrowLeft, Download, Save, Cloud, Database, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Download, Save, Cloud, Database } from 'lucide-react';
 import { useGeminiApi } from '@/hooks/useGeminiApi';
 import * as XLSX from 'xlsx';
 import { googleSheetsService } from '@/services/googleSheetsService';
 import { tallyService } from '@/services/tallyService';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface RouteState {
   data: {
@@ -21,51 +19,7 @@ interface RouteState {
     fileName: string;
     sheetTitle: string;
   };
-  sheetUrl?: string;
-  spreadsheetId?: string;
 }
-
-interface ExportDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  link: string | null;
-  sheetTitle: string | null;
-}
-
-const ExportDialog = ({ isOpen, onClose, link, sheetTitle }: ExportDialogProps) => {
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Google Sheet Exported</DialogTitle>
-          <DialogDescription>
-            Your data has been successfully exported to Google Sheets
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col space-y-4 py-4">
-          <div className="flex flex-col space-y-2">
-            <p className="text-sm font-medium">Sheet Title:</p>
-            <p className="text-sm text-muted-foreground">{sheetTitle}</p>
-          </div>
-          <div className="flex flex-col space-y-2">
-            <p className="text-sm font-medium">Shareable Link:</p>
-            <p className="text-sm break-all text-blue-500">{link}</p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={() => {
-            window.open(link || '', '_blank');
-          }}>
-            Open in New Tab
-          </Button>
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 const CSVEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -77,35 +31,17 @@ const CSVEditor = () => {
   const [originalData, setOriginalData] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncingTally, setIsSyncingTally] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
   const [fileName, setFileName] = useState('data.xlsx');
   const [fileId, setFileId] = useState<string | null>(null);
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [exportedLink, setExportedLink] = useState<string | null>(null);
-  const [exportedSheetTitle, setExportedSheetTitle] = useState<string | null>(null);
-  
-  // Get the spreadsheetId from location state if provided
-  const routeState = location.state as RouteState | null;
-  const [spreadsheetId, setSpreadsheetId] = useState<string | null>(routeState?.spreadsheetId || null);
-  const [sheetUrl, setSheetUrl] = useState<string | null>(routeState?.sheetUrl || null);
 
   useEffect(() => {
+    const routeState = location.state as RouteState | null;
     if (routeState?.data) {
       const { extractedData, fileId, fileName } = routeState.data;
       setData(extractedData);
       setOriginalData(extractedData);
       setFileName(fileName);
       setFileId(fileId);
-      
-      // If there's a spreadsheetId in the route state, set it
-      if (routeState.spreadsheetId) {
-        setSpreadsheetId(routeState.spreadsheetId);
-      }
-      
-      // If there's a sheetUrl in the route state, set it
-      if (routeState.sheetUrl) {
-        setSheetUrl(routeState.sheetUrl);
-      }
     } else if (id) {
       fetchData(id);
     }
@@ -192,40 +128,6 @@ const CSVEditor = () => {
     }
   };
 
-  const handleExportToGoogleSheet = async () => {
-    if (data.length === 0) {
-      toast.error('No data available to export.');
-      return;
-    }
-
-    setIsExporting(true);
-    try {
-      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const title = `Exported_Results_${timestamp}`;
-      
-      const result = await googleSheetsService.exportToGoogleSheet(data, title);
-      
-      if (result.success) {
-        setExportedLink(result.shareableLink);
-        setExportedSheetTitle(result.sheetTitle);
-        setSpreadsheetId(result.spreadsheetId);
-        setSheetUrl(result.shareableLink);
-        setExportDialogOpen(true);
-      }
-    } catch (error) {
-      console.error("Error exporting to Google Sheet:", error);
-      toast.error("Failed to export to Google Sheet");
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  // Function to get the embed URL for the Google Sheet
-  const getEmbedUrl = () => {
-    if (!spreadsheetId) return null;
-    return googleSheetsService.getEmbedUrl(spreadsheetId);
-  };
-
   return (
     <Layout>
       <div className="container mx-auto py-6">
@@ -298,25 +200,6 @@ const CSVEditor = () => {
                 "Sync with Tally"
               )}
             </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleExportToGoogleSheet}
-              disabled={isExporting || isLoading}
-              className="flex items-center gap-1"
-            >
-              {isExporting ? (
-                <>
-                  <LoadingSpinner />
-                  Exporting...
-                </>
-              ) : (
-                <>
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Export to Google Sheet
-                </>
-              )}
-            </Button>
           </div>
         </div>
 
@@ -325,38 +208,6 @@ const CSVEditor = () => {
           onDataChange={handleDataChange} 
           onSave={handleSave} 
           title="Spreadsheet Data"
-        />
-
-        {/* Display the Google Sheet in an iframe if spreadsheetId is available */}
-        {spreadsheetId && (
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>Google Sheet Preview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <iframe 
-                src={getEmbedUrl() || `https://docs.google.com/spreadsheets/d/${spreadsheetId}/preview`}
-                width="100%" 
-                height="500" 
-                style={{ border: 'none' }}
-                title="Google Sheet Preview"
-              />
-              {sheetUrl && (
-                <div className="mt-4">
-                  <Button variant="outline" onClick={() => window.open(sheetUrl, '_blank')}>
-                    Open in Google Sheets
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        <ExportDialog
-          isOpen={exportDialogOpen}
-          onClose={() => setExportDialogOpen(false)}
-          link={exportedLink}
-          sheetTitle={exportedSheetTitle}
         />
       </div>
     </Layout>
