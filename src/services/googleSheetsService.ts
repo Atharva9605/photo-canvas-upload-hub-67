@@ -1,5 +1,4 @@
-
-import { GoogleSpreadsheet, ServiceAccountCredentials } from 'google-spreadsheet';
+import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
 import config from '../config/api';
@@ -27,17 +26,14 @@ class GoogleSheetsService {
       // Use provided sheetId or fallback to the default one
       const spreadsheetId = sheetId || this.spreadsheetId || 'mock-sheet-id';
       
-      // Create a new GoogleSpreadsheet instance with the required parameters
-      // The library requires a document ID and an options object
-      this.doc = new GoogleSpreadsheet(spreadsheetId, {
-        // This empty object is required as the second parameter
-      });
+      // Create a new GoogleSpreadsheet instance
+      this.doc = new GoogleSpreadsheet(spreadsheetId);
       
-      // Authenticate with the Google Sheets API using the updated method signature
+      // Authenticate with the Google Sheets API
       await this.doc.useServiceAccountAuth({
         client_email: this.serviceAccountEmail,
         private_key: this.privateKey
-      } as ServiceAccountCredentials);
+      });
 
       // Load document properties and sheets
       await this.doc.loadInfo();
@@ -183,7 +179,6 @@ class GoogleSheetsService {
     }
   }
 
-  // Get all data from a sheet
   async getSheetData(sheetTitle: string) {
     try {
       const doc = await this.init(this.spreadsheetId);
@@ -234,13 +229,11 @@ class GoogleSheetsService {
     }
   }
 
-  // Get the embed URL for a Google Sheet
   getEmbedUrl(spreadsheetId: string = '') {
     const id = spreadsheetId || this.spreadsheetId || 'mock-sheet-id';
     return `https://docs.google.com/spreadsheets/d/${id}/preview`;
   }
 
-  // Set the spreadsheet ID (useful when getting it from API)
   setSpreadsheetId(id: string) {
     if (id && id.trim() !== '') {
       this.spreadsheetId = id;
