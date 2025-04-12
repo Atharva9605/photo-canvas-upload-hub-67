@@ -4,6 +4,11 @@ import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
 import config from '../config/api';
 
+// Polyfill Buffer for browser environments
+if (typeof window !== 'undefined' && typeof global === 'undefined') {
+  (window as any).Buffer = require('buffer/').Buffer;
+}
+
 // This class handles all Google Sheets operations
 class GoogleSheetsService {
   private doc: GoogleSpreadsheet | null = null;
@@ -22,7 +27,7 @@ class GoogleSheetsService {
   }
 
   async init(sheetId: string = '') {
-    // In browser environments, return a mock document
+    // Always use mock in browser environments
     if (this.isBrowser) {
       console.log('Running in browser environment, using mock Google Sheets functionality');
       return this.createMockDoc(sheetId || this.spreadsheetId || 'mock-sheet-id');
@@ -60,6 +65,7 @@ class GoogleSheetsService {
 
   // Create a mock document for browser environments
   private createMockDoc(spreadsheetId: string) {
+    console.log('Creating mock Google Sheets document');
     const mockDoc: any = {
       spreadsheetId,
       title: 'Mock Google Spreadsheet',
