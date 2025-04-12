@@ -1,3 +1,4 @@
+
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
@@ -10,7 +11,6 @@ class GoogleSheetsService {
   private serviceAccountEmail = '';
   private privateKey = '';
   private spreadsheetId = '';
-  private isBrowser = typeof window !== 'undefined';
 
   constructor() {
     // These would ideally come from environment variables
@@ -21,19 +21,12 @@ class GoogleSheetsService {
   }
 
   async init(sheetId: string = '') {
-    // Always use mock in browser environments
-    if (this.isBrowser) {
-      console.log('Running in browser environment, using mock Google Sheets functionality');
-      return this.createMockDoc(sheetId || this.spreadsheetId || 'mock-sheet-id');
-    }
-
     if (this.initialized && this.doc) return this.doc;
 
     try {
       // Use provided sheetId or fallback to the default one
       const spreadsheetId = sheetId || this.spreadsheetId || 'mock-sheet-id';
       
-      // Create a new GoogleSpreadsheet instance
       this.doc = new GoogleSpreadsheet(spreadsheetId);
       
       // Authenticate with the Google Sheets API
@@ -55,57 +48,6 @@ class GoogleSheetsService {
       // Still throw the error for the caller to handle
       throw new Error(errorMessage);
     }
-  }
-
-  // Create a mock document for browser environments
-  private createMockDoc(spreadsheetId: string) {
-    console.log('Creating mock Google Sheets document');
-    const mockDoc: any = {
-      spreadsheetId,
-      title: 'Mock Google Spreadsheet',
-      sheetsByTitle: {},
-      addSheet: async (options: { title: string, headerValues: string[] }) => {
-        console.log('Mock: Creating sheet', options.title);
-        const mockSheet = this.createMockSheet(options.title, options.headerValues);
-        mockDoc.sheetsByTitle[options.title] = mockSheet;
-        return mockSheet;
-      },
-      loadInfo: async () => {
-        console.log('Mock: Loading document info');
-        return { title: 'Mock Google Spreadsheet' };
-      }
-    };
-    
-    this.doc = mockDoc as any;
-    this.initialized = true;
-    return mockDoc;
-  }
-
-  // Create a mock sheet for browser environments
-  private createMockSheet(title: string, headerValues: string[]) {
-    let rows: any[] = [];
-    return {
-      title,
-      headerValues,
-      getRows: async () => {
-        console.log('Mock: Getting rows from', title);
-        return rows.map(row => ({
-          get: (key: string) => row[key]
-        }));
-      },
-      addRows: async (newRows: any[]) => {
-        console.log('Mock: Adding rows to', title, newRows.length);
-        rows = [...rows, ...newRows];
-        return newRows;
-      },
-      clear: async () => {
-        console.log('Mock: Clearing sheet', title);
-        rows = [];
-      },
-      setHeaderRow: async (headers: string[]) => {
-        console.log('Mock: Setting header row', headers);
-      }
-    };
   }
 
   async createSheet(title: string) {
@@ -237,6 +179,7 @@ class GoogleSheetsService {
     }
   }
 
+  // Get all data from a sheet
   async getSheetData(sheetTitle: string) {
     try {
       const doc = await this.init(this.spreadsheetId);
@@ -287,11 +230,13 @@ class GoogleSheetsService {
     }
   }
 
+  // Get the embed URL for a Google Sheet
   getEmbedUrl(spreadsheetId: string = '') {
     const id = spreadsheetId || this.spreadsheetId || 'mock-sheet-id';
     return `https://docs.google.com/spreadsheets/d/${id}/preview`;
   }
 
+  // Set the spreadsheet ID (useful when getting it from API)
   setSpreadsheetId(id: string) {
     if (id && id.trim() !== '') {
       this.spreadsheetId = id;

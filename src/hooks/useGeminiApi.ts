@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { geminiApi } from "../services/geminiService";
 import { toast } from "sonner";
@@ -6,7 +7,6 @@ import { googleSheetsService } from "../services/googleSheetsService";
 export function useGeminiApi() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const isBrowser = typeof window !== 'undefined';
 
   // Function to analyze an image using Gemini API
   const analyzeImage = async (file: File, options?: any) => {
@@ -139,19 +139,14 @@ export function useGeminiApi() {
     try {
       const result = await geminiApi.updateCsvData(id, data);
       
-      // Sync with Google Sheets (skip actual sync in browser)
-      if (!isBrowser) {
-        try {
-          const sheetTitle = `Data_Sheet_${id}`;
-          await googleSheetsService.updateRows(sheetTitle, data);
-          toast.success("Data synced with Google Sheets");
-        } catch (sheetErr) {
-          console.error("Error syncing with Google Sheets:", sheetErr);
-          toast.error("Failed to sync with Google Sheets");
-        }
-      } else {
-        // Show simulated success message in browser
-        toast.info("Google Sheets sync is simulated in browser environments");
+      // Sync with Google Sheets
+      try {
+        const sheetTitle = `Data_Sheet_${id}`;
+        await googleSheetsService.updateRows(sheetTitle, data);
+        toast.success("Data synced with Google Sheets");
+      } catch (sheetErr) {
+        console.error("Error syncing with Google Sheets:", sheetErr);
+        toast.error("Failed to sync with Google Sheets");
       }
       
       setIsLoading(false);
@@ -183,13 +178,6 @@ export function useGeminiApi() {
   const syncWithGoogleSheets = async (id: string, data: any) => {
     setIsLoading(true);
     setError(null);
-    
-    // Skip actual sync in browser environments
-    if (isBrowser) {
-      setIsLoading(false);
-      toast.info("Google Sheets sync is simulated in browser environments");
-      return true;
-    }
     
     try {
       const sheetTitle = `Data_Sheet_${id}`;
