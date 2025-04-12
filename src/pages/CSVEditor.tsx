@@ -18,6 +18,8 @@ interface RouteState {
     fileId: string;
     fileName: string;
     sheetTitle: string;
+    sheetUrl?: string;
+    spreadsheetId?: string;
   };
 }
 
@@ -33,15 +35,24 @@ const CSVEditor = () => {
   const [isSyncingTally, setIsSyncingTally] = useState(false);
   const [fileName, setFileName] = useState('data.xlsx');
   const [fileId, setFileId] = useState<string | null>(null);
+  const [sheetUrl, setSheetUrl] = useState<string | null>(null);
+  const [isLoadingSheet, setIsLoadingSheet] = useState(false);
 
   useEffect(() => {
     const routeState = location.state as RouteState | null;
     if (routeState?.data) {
-      const { extractedData, fileId, fileName } = routeState.data;
+      const { extractedData, fileId, fileName, sheetUrl, spreadsheetId } = routeState.data;
       setData(extractedData);
       setOriginalData(extractedData);
       setFileName(fileName);
       setFileId(fileId);
+      
+      // Handle Google Sheet URL from route state
+      if (sheetUrl) {
+        setSheetUrl(sheetUrl);
+      } else if (spreadsheetId) {
+        setSheetUrl(googleSheetsService.getEmbedUrl(spreadsheetId));
+      }
     } else if (id) {
       fetchData(id);
     }
@@ -49,6 +60,7 @@ const CSVEditor = () => {
 
   const fetchData = async (id: string) => {
     try {
+      setIsLoadingSheet(true);
       const csvData = await getCsvData(id);
       if (csvData) {
         setData(csvData);
@@ -60,7 +72,9 @@ const CSVEditor = () => {
       }
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Failed to load data.');
+      toast.error('Failed to load data: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsLoadingSheet(false);
     }
   };
 
@@ -81,7 +95,7 @@ const CSVEditor = () => {
       toast.success('Changes saved successfully!');
     } catch (error) {
       console.error('Error updating data:', error);
-      toast.error('Failed to save changes.');
+      toast.error('Failed to save changes: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsSaving(false);
     }
@@ -100,13 +114,30 @@ const CSVEditor = () => {
       return;
     }
 
+    setIsSaving(true);
     try {
       const sheetTitle = `Data_Sheet_${fileId}`;
-      await googleSheetsService.updateRows(sheetTitle, data);
-      toast.success("Data synced with Google Sheets");
+      const result = await googleSheetsService.updateRows(sheetTitle, data);
+      
+      if (result.success) {
+        toast.success("Data synced with Google Sheets");
+        if (result.sheetUrl) {
+          setSheetUrl(result.sheetUrl);
+        }
+      } else {
+        // We'll still show the sheet URL if available, even if sync had issues
+        if (result.sheetUrl) {
+          setSheetUrl(result.sheetUrl);
+          toast.error(`Partial sync: ${result.error}. Sheet URL is still available.`);
+        } else {
+          toast.error(`Failed to sync with Google Sheets: ${result.error}`);
+        }
+      }
     } catch (sheetErr) {
       console.error("Error syncing with Google Sheets:", sheetErr);
       toast.error("Failed to sync with Google Sheets");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -209,6 +240,28 @@ const CSVEditor = () => {
           onSave={handleSave} 
           title="Spreadsheet Data"
         />
+        
+        {isLoadingSheet && (
+          <div className="mt-6 flex items-center justify-center p-8">
+            <LoadingSpinner />
+            <span className="ml-2">Loading sheet data...</span>
+          </div>
+        )}
+        
+        {sheetUrl && (
+          <div className="mt-6">
+            <h2 className="text-xl font-semibold mb-3">Google Sheet</h2>
+            <div className="border rounded-md overflow-hidden" style={{ height: '500px' }}>
+              <iframe 
+                src={sheetUrl} 
+                width="100%" 
+                height="100%" 
+                title="Google Sheet" 
+                className="border-0"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
