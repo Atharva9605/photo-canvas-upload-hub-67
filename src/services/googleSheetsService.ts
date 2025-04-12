@@ -27,9 +27,11 @@ class GoogleSheetsService {
       // Use provided sheetId or fallback to the default one
       const spreadsheetId = sheetId || this.spreadsheetId || 'mock-sheet-id';
       
+      // The GoogleSpreadsheet constructor expects the spreadsheet ID
       this.doc = new GoogleSpreadsheet(spreadsheetId);
       
       // Authenticate with the Google Sheets API
+      // Fix: Initialize authentication with the correct parameters
       await this.doc.useServiceAccountAuth({
         client_email: this.serviceAccountEmail,
         private_key: this.privateKey
