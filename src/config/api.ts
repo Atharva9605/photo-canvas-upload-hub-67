@@ -20,14 +20,16 @@ const config = {
     CSV_DATA: "/csv-data",
     UPDATE_CSV_DATA: "/update-csv-data",
     GOOGLE_SHEETS: "/google-sheets",
-    SYNC_SHEETS: "/sync-sheets"
+    SYNC_SHEETS: "/sync-sheets",
+    GET_SHEET_DATA: "/get-sheet-data"
   },
   
   // Google Sheets API config
   GOOGLE_SHEETS: {
-    API_KEY: "", // Would be provided through environment variables
-    CLIENT_ID: "",
-    REDIRECT_URI: window.location.origin + "/auth/google/callback"
+    API_KEY: import.meta.env.VITE_GOOGLE_API_KEY || "", // Would be provided through environment variables
+    CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID || "",
+    REDIRECT_URI: window.location.origin + "/auth/google/callback",
+    SPREADSHEET_ID: import.meta.env.VITE_SPREADSHEET_ID || ""
   }
 };
 

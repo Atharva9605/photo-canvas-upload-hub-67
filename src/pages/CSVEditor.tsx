@@ -1,267 +1,235 @@
+import { useState, useEffect, useRef } from "react";
+import Layout from "@/components/Layout";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useSearchParams, useParams } from "react-router-dom";
+import { googleSheetsService } from "@/services/googleSheetsService";
+import { toast } from "sonner";
+import { getSheetIdFromUrl } from "@/utils/sheetUtils";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { Table as TablesIcon, ExternalLink, Save, FileSpreadsheet } from "lucide-react";
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import Layout from '@/components/Layout';
-import EditableTable from '@/components/EditableTable';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import { ArrowLeft, Download, Save, Cloud, Database } from 'lucide-react';
-import { useGeminiApi } from '@/hooks/useGeminiApi';
-import * as XLSX from 'xlsx';
-import { googleSheetsService } from '@/services/googleSheetsService';
-import { tallyService } from '@/services/tallyService';
-import LoadingSpinner from '@/components/LoadingSpinner';
+const DEFAULT_ROWS = 20;
+const DEFAULT_COLS = 10;
 
-interface RouteState {
-  data: {
-    extractedData: any[];
-    fileId: string;
-    fileName: string;
-    sheetTitle: string;
-    sheetUrl?: string;
-    spreadsheetId?: string;
-  };
-}
-
+// Component to create a spreadsheet interface
 const CSVEditor = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { isLoading, getCsvData, updateCsvData } = useGeminiApi();
-  
-  const [data, setData] = useState<any[]>([]);
-  const [originalData, setOriginalData] = useState<any[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSyncingTally, setIsSyncingTally] = useState(false);
-  const [fileName, setFileName] = useState('data.xlsx');
-  const [fileId, setFileId] = useState<string | null>(null);
-  const [sheetUrl, setSheetUrl] = useState<string | null>(null);
+  const [title, setTitle] = useState("Untitled Spreadsheet");
+  const [data, setData] = useState<Array<Array<string>>>(
+    Array(DEFAULT_ROWS).fill(0).map(() => Array(DEFAULT_COLS).fill(""))
+  );
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
   const [isLoadingSheet, setIsLoadingSheet] = useState(false);
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const sheetUrlFromParams = searchParams.get('sheetUrl');
 
-  useEffect(() => {
-    const routeState = location.state as RouteState | null;
-    if (routeState?.data) {
-      const { extractedData, fileId, fileName, sheetUrl, spreadsheetId } = routeState.data;
-      setData(extractedData);
-      setOriginalData(extractedData);
-      setFileName(fileName);
-      setFileId(fileId);
+  // Function to create a new spreadsheet
+  const createNewSpreadsheet = async () => {
+    setLoading(true);
+    // try {
+    //   const { data: spreadsheet, error } = await supabase
+    //     .from('spreadsheets')
+    //     .insert({
+    //       title: title,
+    //       // user_id: user?.id,
+    //     })
+    //     .select('id')
+    //     .single();
+
+    //   if (error) throw error;
       
-      // Handle Google Sheet URL from route state
-      if (sheetUrl) {
-        setSheetUrl(sheetUrl);
-      } else if (spreadsheetId) {
-        setSheetUrl(googleSheetsService.getEmbedUrl(spreadsheetId));
-      }
-    } else if (id) {
-      fetchData(id);
-    }
-  }, [id, location]);
+    //   if (spreadsheet) {
+    //     // setSpreadsheetId(spreadsheet.id);
+    //     setData(Array(DEFAULT_ROWS).fill(0).map(() => Array(DEFAULT_COLS).fill("")));
+    //     toast({
+    //       title: "Spreadsheet created",
+    //       description: "Your new spreadsheet has been created successfully.",
+    //     });
+    //   }
+    // } catch (error) {
+    //   console.error("Error creating spreadsheet:", error);
+    //   toast({
+    //     variant: "destructive",
+    //     title: "Error",
+    //     description: "Failed to create a new spreadsheet.",
+    //   });
+    // } finally {
+    //   setLoading(false);
+    // }
+  };
 
-  const fetchData = async (id: string) => {
+  // Function to load data from Google Sheets
+  const loadSheetData = async () => {
     try {
-      setIsLoadingSheet(true);
-      const csvData = await getCsvData(id);
-      if (csvData) {
-        setData(csvData);
-        setOriginalData(csvData);
-        setFileName(`data_sheet_${id}.xlsx`);
-        setFileId(id);
-      } else {
-        toast.error('Failed to load data.');
+      if (!sheetUrlFromParams) {
+        toast.error("No Google Sheet URL provided");
+        return;
       }
+      
+      setIsLoadingSheet(true);
+      const sheetId = getSheetIdFromUrl(sheetUrlFromParams);
+      
+      if (!sheetId) {
+        toast.error("Invalid Google Sheet URL");
+        setIsLoadingSheet(false);
+        return;
+      }
+      
+      toast.info("Loading data from Google Sheets...");
+      
+      // Set the spreadsheet ID
+      googleSheetsService.setSpreadsheetId(sheetId);
+      
+      // Get data from the first sheet
+      const sheetData = await googleSheetsService.getSheetData('Sheet1');
+      
+      // Convert to 2D array format for the editor
+      const newData = convertSheetDataTo2DArray(sheetData);
+      
+      setData(newData);
+      toast.success("Data loaded from Google Sheets");
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load data: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error("Error loading sheet data:", error);
+      toast.error(`Failed to load sheet data: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsLoadingSheet(false);
     }
   };
+  
+  // Function to convert sheet data to 2D array
+  const convertSheetDataTo2DArray = (sheetData) => {
+    if (!sheetData || !sheetData.length) return data;
+    
+    const newData = [...data];
+    
+    // Fill in the data
+    sheetData.forEach((row, rowIndex) => {
+      const dataObj = row;
+      if (rowIndex < newData.length) {
+        const rowData = Object.values(dataObj);
+        rowData.forEach((value, colIndex) => {
+          if (colIndex < newData[rowIndex].length) {
+            newData[rowIndex][colIndex] = value !== null ? String(value) : "";
+          }
+        });
+      }
+    });
+    
+    return newData;
+  };
 
-  const handleDataChange = (newData: any[]) => {
+  // Function to open the sheet in Google Sheets
+  const openInGoogleSheets = () => {
+    if (sheetUrlFromParams) {
+      window.open(sheetUrlFromParams, '_blank');
+    } else {
+      toast.error("No sheet URL available");
+    }
+  };
+
+  // Handle cell value change
+  const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
+    const newData = [...data];
+    newData[rowIndex][colIndex] = value;
     setData(newData);
   };
 
-  const handleSave = async () => {
-    if (!fileId) {
-      toast.error('No file ID available to save.');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await updateCsvData(fileId, data);
-      setOriginalData(data);
-      toast.success('Changes saved successfully!');
-    } catch (error) {
-      console.error('Error updating data:', error);
-      toast.error('Failed to save changes: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setIsSaving(false);
-    }
+  // Add a row to the spreadsheet
+  const addRow = () => {
+    const newData = [...data];
+    const newRow = Array(data[0].length).fill("");
+    newData.push(newRow);
+    setData(newData);
   };
 
-  const handleDownload = () => {
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(data);
-    XLSX.utils.book_append_sheet(wb, ws, 'Data');
-    XLSX.writeFile(wb, fileName);
-  };
-
-  const handleSyncWithGoogle = async () => {
-    if (!fileId) {
-      toast.error('No file ID available to sync.');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const sheetTitle = `Data_Sheet_${fileId}`;
-      const result = await googleSheetsService.updateRows(sheetTitle, data);
-      
-      if (result.success) {
-        toast.success("Data synced with Google Sheets");
-        if (result.sheetUrl) {
-          setSheetUrl(result.sheetUrl);
-        }
-      } else {
-        // We'll still show the sheet URL if available, even if sync had issues
-        if (result.sheetUrl) {
-          setSheetUrl(result.sheetUrl);
-          toast.error(`Partial sync: ${result.error}. Sheet URL is still available.`);
-        } else {
-          toast.error(`Failed to sync with Google Sheets: ${result.error}`);
-        }
-      }
-    } catch (sheetErr) {
-      console.error("Error syncing with Google Sheets:", sheetErr);
-      toast.error("Failed to sync with Google Sheets");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSyncWithTally = async () => {
-    if (data.length === 0) {
-      toast.error('No data available to sync with Tally.');
-      return;
-    }
-
-    setIsSyncingTally(true);
-    try {
-      await tallyService.syncWithTally(data);
-      toast.success("Data synced with Tally ERP");
-    } catch (error) {
-      console.error("Error syncing with Tally:", error);
-      toast.error("Failed to sync with Tally");
-    } finally {
-      setIsSyncingTally(false);
-    }
+  // Add a column to the spreadsheet
+  const addColumn = () => {
+    const newData = data.map(row => [...row, ""]);
+    setData(newData);
   };
 
   return (
     <Layout>
-      <div className="container mx-auto py-6">
-        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">{fileName}</h1>
-            <p className="text-muted-foreground">{data.length} rows</p>
+      <div className="container mx-auto py-8">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet className="h-6 w-6 text-primary" />
+            <h1 className="text-3xl font-bold">CSV Editor</h1>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-1"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => createNewSpreadsheet()} disabled={loading}>
+              New Spreadsheet
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownload}
-              className="flex items-center gap-1"
-            >
-              <Download className="h-4 w-4" />
-              Export XLSX
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={isSaving || isLoading}
-              className="flex items-center gap-1"
-            >
-              {isSaving ? (
-                <>
-                  <LoadingSpinner />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  Save Changes
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSyncWithGoogle}
-              disabled={isSaving || isLoading}
-              className="flex items-center gap-1"
-            >
-              <Cloud className="h-4 w-4" />
-              Sync with Google
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSyncWithTally}
-              disabled={isSyncingTally || isLoading}
-              className="flex items-center gap-1"
-            >
-              <Database className="h-4 w-4" />
-              {isSyncingTally ? (
-                <>
-                  <LoadingSpinner />
-                  Syncing...
-                </>
-              ) : (
-                "Sync with Tally"
-              )}
-            </Button>
+            {sheetUrlFromParams && (
+              <Button 
+                variant="outline" 
+                onClick={loadSheetData}
+                disabled={isLoadingSheet}
+                className="flex items-center gap-2"
+              >
+                <TablesIcon className="h-4 w-4" />
+                {isLoadingSheet ? <LoadingSpinner size="sm" /> : "Load Sheet Data"}
+              </Button>
+            )}
+            
+            {sheetUrlFromParams && (
+              <Button 
+                variant="outline" 
+                onClick={openInGoogleSheets}
+                className="flex items-center gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open Spreadsheet
+              </Button>
+            )}
           </div>
         </div>
 
-        <EditableTable 
-          data={data} 
-          onDataChange={handleDataChange} 
-          onSave={handleSave} 
-          title="Spreadsheet Data"
-        />
-        
-        {isLoadingSheet && (
-          <div className="mt-6 flex items-center justify-center p-8">
-            <LoadingSpinner />
-            <span className="ml-2">Loading sheet data...</span>
+        <Card className="overflow-x-auto p-4">
+          <div className="min-w-max">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="w-10 border bg-muted p-2"></th>
+                  {data[0].map((_, i) => (
+                    <th key={i} className="border bg-muted p-2 text-center">
+                      {String.fromCharCode(65 + i)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    <td className="border bg-muted p-2 text-center">{rowIndex + 1}</td>
+                    {row.map((cell, colIndex) => (
+                      <td key={colIndex} className="border p-0">
+                        <input
+                          type="text"
+                          value={cell}
+                          onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
+                          className="h-full w-full border-0 p-2 focus:ring-0"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-        
-        {sheetUrl && (
-          <div className="mt-6">
-            <h2 className="text-xl font-semibold mb-3">Google Sheet</h2>
-            <div className="border rounded-md overflow-hidden" style={{ height: '500px' }}>
-              <iframe 
-                src={sheetUrl} 
-                width="100%" 
-                height="100%" 
-                title="Google Sheet" 
-                className="border-0"
-              />
-            </div>
-          </div>
-        )}
+        </Card>
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={addRow}>
+            Add Row
+          </Button>
+          <Button variant="outline" onClick={addColumn}>
+            Add Column
+          </Button>
+        </div>
       </div>
     </Layout>
   );
