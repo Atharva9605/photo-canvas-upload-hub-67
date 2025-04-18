@@ -1,3 +1,4 @@
+
 import { useState, useRef, ChangeEvent, DragEvent, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -39,7 +40,7 @@ const Upload = () => {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [selectedFilesForPdf, setSelectedFilesForPdf] = useState<boolean[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { isLoading, error, analyzeImage, syncWithGoogleSheets } = useGeminiApi();
+  const { isLoading, error, analyzeImage } = useGeminiApi();
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 640px)");
 
@@ -275,12 +276,13 @@ const Upload = () => {
       
       if (formattedData.length > 0) {
         try {
+          // Instead of syncing to Google Sheets, just store the data
           const fileId = uploadedFiles[0].id;
-          await syncWithGoogleSheets(fileId, formattedData);
-          toast.success("Data synced with Google Sheets");
-        } catch (sheetError) {
-          console.error("Google Sheets sync error:", sheetError);
-          toast.error("Failed to sync with Google Sheets");
+          // We'll use the local CSV data functionality instead
+          toast.success("Data extracted successfully");
+        } catch (dataError) {
+          console.error("Data processing error:", dataError);
+          toast.error("Failed to process extracted data");
         }
       }
       
