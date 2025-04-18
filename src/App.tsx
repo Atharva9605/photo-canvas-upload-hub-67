@@ -24,6 +24,7 @@ import DownloadCSV from "./pages/DownloadCSV";
 import CSVDisplay from "./pages/CSVDisplay";
 import CSVEditor from "./pages/CSVEditor";
 import SavedCSVList from "./pages/SavedCSVList";
+import SpreadsheetView from "./pages/SpreadsheetView";
 
 const queryClient = new QueryClient();
 
@@ -146,6 +147,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <SavedCSVList />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/spreadsheet-view" 
+              element={
+                <ProtectedRoute>
+                  <SpreadsheetView />
                 </ProtectedRoute>
               } 
             />

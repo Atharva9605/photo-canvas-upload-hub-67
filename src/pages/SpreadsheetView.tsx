@@ -3,15 +3,14 @@ import { useLocation } from 'react-router-dom';
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
-
-const SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/11363SNwRWpG67fu53VAWIJPY9iPCDhYqqiAu8pHFuGo/edit?gid=1632396235";
+import config from "@/config/api";
 
 const SpreadsheetView = () => {
   const location = useLocation();
   const { fileName } = location.state || {};
 
   const openSpreadsheet = () => {
-    window.open(SPREADSHEET_URL, '_blank');
+    window.open(config.SPREADSHEET_URL, '_blank');
   };
 
   return (
@@ -32,7 +31,7 @@ const SpreadsheetView = () => {
         
         <div className="h-[800px] w-full rounded-lg border bg-background shadow-sm">
           <iframe
-            src={`${SPREADSHEET_URL}?embedded=true`}
+            src={`${config.SPREADSHEET_URL}?embedded=true`}
             className="h-full w-full rounded-lg"
             title="Google Spreadsheet"
           />
