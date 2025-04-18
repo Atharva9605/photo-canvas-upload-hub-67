@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams, useParams } from "react-router-dom";
-import { googleSheetsService } from "@/services/googleSheetsService";
 import { toast } from "sonner";
-import { getSheetIdFromUrl } from "@/utils/sheetUtils";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Table as TablesIcon, ExternalLink, Save, FileSpreadsheet } from "lucide-react";
 
@@ -61,97 +59,6 @@ const CSVEditor = () => {
     // }
   };
 
-  // Function to load data from Google Sheets
-  const loadSheetData = async () => {
-    try {
-      if (!sheetUrlFromParams) {
-        uiToast({
-          variant: "destructive",
-          title: "Error",
-          description: "No Google Sheet URL provided"
-        });
-        return;
-      }
-      
-      setIsLoadingSheet(true);
-      const sheetId = getSheetIdFromUrl(sheetUrlFromParams);
-      
-      if (!sheetId) {
-        uiToast({
-          variant: "destructive", 
-          title: "Error",
-          description: "Invalid Google Sheet URL"
-        });
-        setIsLoadingSheet(false);
-        return;
-      }
-      
-      uiToast({
-        title: "Loading",
-        description: "Loading data from Google Sheets..."
-      });
-      
-      // Set the spreadsheet ID
-      googleSheetsService.setSpreadsheetId(sheetId);
-      
-      // Get data from the first sheet
-      const sheetData = await googleSheetsService.getSheetData('Sheet1');
-      
-      // Convert to 2D array format for the editor
-      const newData = convertSheetDataTo2DArray(sheetData);
-      
-      setData(newData);
-      uiToast({
-        title: "Success",
-        description: "Data loaded from Google Sheets"
-      });
-    } catch (error) {
-      console.error("Error loading sheet data:", error);
-      uiToast({
-        variant: "destructive",
-        title: "Error",
-        description: `Failed to load sheet data: ${error instanceof Error ? error.message : "Unknown error"}`
-      });
-    } finally {
-      setIsLoadingSheet(false);
-    }
-  };
-  
-  // Function to convert sheet data to 2D array
-  const convertSheetDataTo2DArray = (sheetData) => {
-    if (!sheetData || !sheetData.length) return data;
-    
-    const newData = [...data];
-    
-    // Fill in the data
-    sheetData.forEach((row, rowIndex) => {
-      const dataObj = row;
-      if (rowIndex < newData.length) {
-        const rowData = Object.values(dataObj);
-        rowData.forEach((value, colIndex) => {
-          if (colIndex < newData[rowIndex].length) {
-            newData[rowIndex][colIndex] = value !== null ? String(value) : "";
-          }
-        });
-      }
-    });
-    
-    return newData;
-  };
-
-  // Function to open the sheet in Google Sheets
-  const openInGoogleSheets = () => {
-    if (sheetUrlFromParams) {
-      window.open(sheetUrlFromParams, '_blank');
-    } else {
-      uiToast({
-        variant: "destructive",
-        title: "Error",
-        description: "No sheet URL available"
-      });
-    }
-  };
-
   // Handle cell value change
   const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
     const newData = [...data];
@@ -185,28 +92,6 @@ const CSVEditor = () => {
             <Button onClick={() => createNewSpreadsheet()} disabled={loading}>
               New Spreadsheet
             </Button>
-            {sheetUrlFromParams && (
-              <Button 
-                variant="outline" 
-                onClick={loadSheetData}
-                disabled={isLoadingSheet}
-                className="flex items-center gap-2"
-              >
-                <TablesIcon className="h-4 w-4" />
-                {isLoadingSheet ? <LoadingSpinner className="h-4 w-4" /> : "Load Sheet Data"}
-              </Button>
-            )}
-            
-            {sheetUrlFromParams && (
-              <Button 
-                variant="outline" 
-                onClick={openInGoogleSheets}
-                className="flex items-center gap-2"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open Spreadsheet
-              </Button>
-            )}
           </div>
         </div>
 
