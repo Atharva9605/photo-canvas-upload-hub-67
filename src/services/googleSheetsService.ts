@@ -8,12 +8,16 @@ import config from '../config/api';
 class GoogleSheetsService {
   private doc: GoogleSpreadsheet | null = null;
   private initialized = false;
-  private serviceAccountEmail = 'govigyancloubase@gen-lang-client-0281985807.iam.gserviceaccount.com';
-  private privateKey = '-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCOH0F6YB1v4Ba6\nBgtsNnXemliwDWIDEFSwe902Vpnu1qO7dETLz5lV7T+bwwqqJgHlgz5i6Iq+a2WM\nLHc2UPxKx2gcIqWtnTWtc0jvpz/YfE8Qg0opmdbwqi7/L17aKQpHgfPdwlO+Evya\n12PMxRtG5Lxm2zBc88w7IV8AVcR/bX3Q0zhpiumCFSz7beYgRJlPZ0yLr8RkR3Es\nD6dWl4ArI4+iPwDMRgVH5NaQtOyNSa4fl8qVvrFpNSHxVjL/BX5j/y5l1am44iWx\n7mpkQrGvXbET5qEYDFlC/61xHKarUB0v+3HLctz1SSQ5gCpSyuoJKHc7SJawxKOy\nVgVRjvhhAgMBAAECggEABQf2OW7Nm/hC1bMBFIOZCJhOK21N2u3pEZZQ7muCZ4IR\nqcEj7lMbCn+rkMgGyJ8v0gAjZTz2LGeA4MVyMuoLBFqqxNQ1KUA3djxuiI1TJUbB\nRcRgC7j2cu6TW1VB9lcdlgpzp5YJgOELMDAPyF/x50CRqtJ3k9LNmApGYqymmBwq\npluw6bYymP2hjT9MmmA3ePZemeVLD7WYwQx1NlWwQvua7vQDgIwYhQmHzx/9UBSj\nxzEjUK8+z2r+hZ6Kt6xwZBbgFqIi9P7idgmxlj4jYoldgrssMGUtrROUFrrAXf1g\nNr7rbg2QHdooMFytJb3mieqWAYy9IBCNLrVuHl6VQQKBgQDB1S6ZcaSjong95b6S\nr0esy7VRCJkKf2Px/5Sgh2yFqGJzWrU9nCndFwodoAZVW/tVurCJeUDlvUoHa433\njE0lX4Lr/D/+gmJ5IDugg2dkdPpcV0ccFtBSJgZ9PcZ4pfKfUCd7ca58Tjg5nstr\nK47e+RyJc37Pa3M0Sr0zrQTt0wKBgQC7tFKa11XoZABntHzN9cCxPVALX1lE0WU2\nDeRES1EXkVWk0yFTdQJwc7fClAO6fsX5hCPjVniOBqS10gX8+BwXopSEAvBq3gUH\n1TZcbFzjOPspB5ULrFa5Ln15Nv7i55m3rn02PkrCQxA/9DXnfkqT6RTD1ZwFaqZ7\n2E1Ac3f8ewKBgAChRb5/7Q4PGB7zYTQu16fLHbK+uWicU2HU99GxvvuMOY2wbMhf\neo9aZNEF1R9v5hg4PBymRTy56cSuZ863KQUHE3Da6AZWvCUyop757lsYOjwUmImR\n1Wl+8CR2D/AScgBsjURMcUm8I1ikmHqnsJYu7xXPR0k7SyuPVqAVXt+7AoGASRyg\nvE052g3xlnNX1YVuq9q87eESzVpeeOKKUgugJ3TljhDqvy4paBG6tuCeXyr4BAtz\nSx6oUHHIAEYxLOqbTp12CcF3Ubju7rEevns65wqP0dhxNp3HHdQ87VT9jPY3CrO9\nc75psicbEj4WLPglJl24R9tRLU7wT/bdiEgxqTcCgYAjD5k0wBA+VsSKBDHhrG+9\nx93dtyMoo/IcUIwW4NfnE20ngM5zWhPKhmtHJLbBHMNUUo2m2pUqocz/QlSJuiks\nTrkKxy5m1pOTrqwH5mspmu/3l38TGYT+m90w+0xNIVU/GkpnYEr0dcT3d1WyHFnY\naB8Fd6cImieqLTBpjTQbhA==\n-----END PRIVATE KEY-----\n';
-  private spreadsheetId = 'govigyan';
+  private serviceAccountEmail = '';
+  private privateKey = '';
+  private spreadsheetId = '';
 
   constructor() {
-    // Using hardcoded credentials as per user request
+    // These would ideally come from environment variables
+    // For demonstration, we'll use placeholder values
+    this.serviceAccountEmail = 'service-account@project-id.iam.gserviceaccount.com';
+    this.privateKey = '-----BEGIN PRIVATE KEY-----\nYour private key here\n-----END PRIVATE KEY-----';
+    this.spreadsheetId = 'your-spreadsheet-id';
   }
 
   async init(sheetId: string = '') {
@@ -21,28 +25,15 @@ class GoogleSheetsService {
 
     try {
       // Use provided sheetId or fallback to the default one
-      const spreadsheetId = sheetId || this.spreadsheetId || 'govigyan';
+      const spreadsheetId = sheetId || this.spreadsheetId || 'mock-sheet-id';
       
-      // Create Google Spreadsheet instance with the correct type of options
-      // Instead of using googleApiKey (which doesn't exist), we'll use jwt auth only
       this.doc = new GoogleSpreadsheet(spreadsheetId);
       
-      // Authentication method
-      try {
-        // Authentication requires specific format with our credentials
-        const credentials = {
-          client_email: this.serviceAccountEmail,
-          private_key: this.privateKey
-        };
-        
-        // Use type assertion because of TypeScript errors with the library
-        await (this.doc as any).useServiceAccountAuth(credentials);
-        
-        console.log('Authentication successful with Google Sheets');
-      } catch (authError) {
-        console.warn('Authentication error with Google Sheets:', authError);
-        toast.warning('Using limited mode - some Google Sheets features may not work');
-      }
+      // Authenticate with the Google Sheets API
+      await this.doc.useServiceAccountAuth({
+        client_email: this.serviceAccountEmail,
+        private_key: this.privateKey
+      });
 
       // Load document properties and sheets
       await this.doc.loadInfo();
@@ -188,6 +179,7 @@ class GoogleSheetsService {
     }
   }
 
+  // Get all data from a sheet
   async getSheetData(sheetTitle: string) {
     try {
       const doc = await this.init(this.spreadsheetId);
@@ -238,16 +230,13 @@ class GoogleSheetsService {
     }
   }
 
+  // Get the embed URL for a Google Sheet
   getEmbedUrl(spreadsheetId: string = '') {
-    const id = spreadsheetId || this.spreadsheetId || 'govigyan';
+    const id = spreadsheetId || this.spreadsheetId || 'mock-sheet-id';
     return `https://docs.google.com/spreadsheets/d/${id}/preview`;
   }
 
-  extractIdFromUrl(url: string): string | null {
-    const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-    return match ? match[1] : null;
-  }
-
+  // Set the spreadsheet ID (useful when getting it from API)
   setSpreadsheetId(id: string) {
     if (id && id.trim() !== '') {
       this.spreadsheetId = id;
