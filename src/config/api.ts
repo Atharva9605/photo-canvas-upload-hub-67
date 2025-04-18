@@ -5,10 +5,13 @@ const config = {
   GEMINI_API_URL: import.meta.env.VITE_API_BASE_URL || "https://gemini-govigyan.onrender.com",
   
   // Increased timeout for API requests in milliseconds (2 minutes)
-  API_TIMEOUT: 120000, // Increased from 30000 to 120000
+  API_TIMEOUT: 120000,
   
   // Maximum file size for uploads in bytes (10MB)
   MAX_FILE_SIZE: 10 * 1024 * 1024,
+  
+  // Google Spreadsheet URL
+  SPREADSHEET_URL: "https://docs.google.com/spreadsheets/d/11363SNwRWpG67fu53VAWIJPY9iPCDhYqqiAu8pHFuGo/edit?gid=1632396235",
   
   // Endpoints
   ENDPOINTS: {

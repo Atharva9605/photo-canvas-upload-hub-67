@@ -1,4 +1,3 @@
-
 import { useState, useRef, ChangeEvent, DragEvent, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -275,28 +274,15 @@ const Upload = () => {
       }));
       
       if (formattedData.length > 0) {
-        try {
-          // Instead of syncing to Google Sheets, just store the data
-          const fileId = uploadedFiles[0].id;
-          // We'll use the local CSV data functionality instead
-          toast.success("Data extracted successfully");
-        } catch (dataError) {
-          console.error("Data processing error:", dataError);
-          toast.error("Failed to process extracted data");
-        }
+        toast.success("Data processed successfully");
       }
       
       setUploadSuccess(true);
       toast.success("Files successfully uploaded and analyzed");
       
-      navigate('/csv-display', { 
+      navigate('/spreadsheet-view', { 
         state: { 
-          data: {
-            extractedData: formattedData,
-            fileId: uploadedFiles[0].id,
-            fileName: fileToProcess.name,
-            sheetTitle: `Data_Sheet_${uploadedFiles[0].id}`
-          } 
+          fileName: fileToProcess.name
         } 
       });
       
