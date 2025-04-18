@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ const CSVEditor = () => {
     Array(DEFAULT_ROWS).fill(0).map(() => Array(DEFAULT_COLS).fill(""))
   );
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
   const [isLoadingSheet, setIsLoadingSheet] = useState(false);
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -65,7 +66,11 @@ const CSVEditor = () => {
   const loadSheetData = async () => {
     try {
       if (!sheetUrlFromParams) {
-        toast.error("No Google Sheet URL provided");
+        uiToast({
+          variant: "destructive",
+          title: "Error",
+          description: "No Google Sheet URL provided"
+        });
         return;
       }
       
@@ -73,12 +78,19 @@ const CSVEditor = () => {
       const sheetId = getSheetIdFromUrl(sheetUrlFromParams);
       
       if (!sheetId) {
-        toast.error("Invalid Google Sheet URL");
+        uiToast({
+          variant: "destructive", 
+          title: "Error",
+          description: "Invalid Google Sheet URL"
+        });
         setIsLoadingSheet(false);
         return;
       }
       
-      toast.info("Loading data from Google Sheets...");
+      uiToast({
+        title: "Loading",
+        description: "Loading data from Google Sheets..."
+      });
       
       // Set the spreadsheet ID
       googleSheetsService.setSpreadsheetId(sheetId);
@@ -90,10 +102,17 @@ const CSVEditor = () => {
       const newData = convertSheetDataTo2DArray(sheetData);
       
       setData(newData);
-      toast.success("Data loaded from Google Sheets");
+      uiToast({
+        title: "Success",
+        description: "Data loaded from Google Sheets"
+      });
     } catch (error) {
       console.error("Error loading sheet data:", error);
-      toast.error(`Failed to load sheet data: ${error instanceof Error ? error.message : "Unknown error"}`);
+      uiToast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to load sheet data: ${error instanceof Error ? error.message : "Unknown error"}`
+      });
     } finally {
       setIsLoadingSheet(false);
     }
@@ -126,7 +145,11 @@ const CSVEditor = () => {
     if (sheetUrlFromParams) {
       window.open(sheetUrlFromParams, '_blank');
     } else {
-      toast.error("No sheet URL available");
+      uiToast({
+        variant: "destructive",
+        title: "Error",
+        description: "No sheet URL available"
+      });
     }
   };
 
@@ -171,7 +194,7 @@ const CSVEditor = () => {
                 className="flex items-center gap-2"
               >
                 <TablesIcon className="h-4 w-4" />
-                {isLoadingSheet ? <LoadingSpinner size="sm" /> : "Load Sheet Data"}
+                {isLoadingSheet ? <LoadingSpinner className="h-4 w-4" /> : "Load Sheet Data"}
               </Button>
             )}
             

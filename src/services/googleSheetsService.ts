@@ -27,12 +27,13 @@ class GoogleSheetsService {
       // Use provided sheetId or fallback to the default one
       const spreadsheetId = sheetId || this.spreadsheetId || 'mock-sheet-id';
       
-      // Fix: Pass an options object as the second argument
-      this.doc = new GoogleSpreadsheet(spreadsheetId, {
-        credentials: {
-          client_email: this.serviceAccountEmail,
-          private_key: this.privateKey
-        }
+      // Create the GoogleSpreadsheet instance with the spreadsheet ID
+      this.doc = new GoogleSpreadsheet(spreadsheetId);
+      
+      // Authenticate with service account
+      await this.doc.useServiceAccountAuth({
+        client_email: this.serviceAccountEmail,
+        private_key: this.privateKey
       });
       
       // Load document properties and sheets
