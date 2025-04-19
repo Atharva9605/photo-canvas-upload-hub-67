@@ -26,7 +26,7 @@ const Login = () => {
         localStorage.setItem("isLoggedIn", "true");
         toast({
           title: "Login successful",
-          description: "Welcome back to PhotoCanvas!",
+          description: "Welcome back to Govigyan!",
         });
         window.location.href = "/";
       } else {
@@ -49,7 +49,7 @@ const Login = () => {
           </div>
           <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
           <CardDescription>
-            Sign in to your PhotoCanvas account
+            Sign in to your Govigyan account
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

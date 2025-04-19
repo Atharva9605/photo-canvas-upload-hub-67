@@ -57,7 +57,7 @@ const Signup = () => {
           </div>
           <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
           <CardDescription>
-            Get started with PhotoCanvas today
+            Get started with Govigyan today
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

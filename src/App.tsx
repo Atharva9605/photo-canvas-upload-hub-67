@@ -143,14 +143,6 @@ const App = () => {
               } 
             />
             <Route 
-              path="/saved-csvs" 
-              element={
-                <ProtectedRoute>
-                  <SavedCSVList />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
               path="/spreadsheet-view" 
               element={
                 <ProtectedRoute>

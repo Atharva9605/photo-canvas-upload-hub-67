@@ -7,7 +7,7 @@ const Index = () => {
   const guestParam = searchParams.get('guest');
   
   useEffect(() => {
-    document.title = "PhotoCanvas - Upload & Manage Photos";
+    document.title = "Govigyan - Upload & Manage Files";
     
     // Handle guest mode parameter
     if (guestParam === 'true') {

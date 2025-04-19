@@ -86,10 +86,7 @@ const Navbar = () => {
               </Link>
             </Button>
             
-            <Link to="/saved-csvs" className="flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4" />
-              <span>Saved CSVs</span>
-            </Link>
+            
           </div>
         )}
         
