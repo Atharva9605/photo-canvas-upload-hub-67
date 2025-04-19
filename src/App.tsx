@@ -150,6 +150,14 @@ const App = () => {
                 </ProtectedRoute>
               } 
             />
+            <Route 
+              path="/spreadsheet-view/:fileName" 
+              element={
+                <ProtectedRoute>
+                  <SpreadsheetView />
+                </ProtectedRoute>
+              } 
+            />
             
             {/* Catch-all and error routes */}
             <Route path="*" element={<NotFound />} />

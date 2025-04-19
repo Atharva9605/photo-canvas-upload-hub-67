@@ -280,11 +280,21 @@ const Upload = () => {
       setUploadSuccess(true);
       toast.success("Files successfully uploaded and analyzed");
       
-      navigate('/spreadsheet-view', { 
-        state: { 
-          fileName: fileToProcess.name
-        } 
-      });
+      // Save the filename to session storage as a backup
+      sessionStorage.setItem('lastProcessedFile', fileToProcess.name);
+      
+      // Primary approach: Use state for navigation
+      try {
+        navigate('/spreadsheet-view', { 
+          state: { 
+            fileName: fileToProcess.name
+          } 
+        });
+      } catch (error) {
+        console.error("Navigation error:", error);
+        // Fallback: Use URL parameter if state navigation fails
+        navigate(`/spreadsheet-view/${encodeURIComponent(fileToProcess.name)}`);
+      }
       
     } catch (err) {
       console.error("Upload error:", err);
