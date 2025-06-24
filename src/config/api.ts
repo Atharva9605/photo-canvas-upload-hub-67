@@ -2,7 +2,7 @@
 // API configuration values
 const config = {
   // Base API URL from environment variable
-  GEMINI_API_URL: import.meta.env.VITE_API_BASE_URL || "https://gemini-govigyan.onrender.com",
+  GEMINI_API_URL: import.meta.env.VITE_API_BASE_URL || "https://govigyan-api.onrender.com",
   
   // Increased timeout for API requests in milliseconds (2 minutes)
   API_TIMEOUT: 120000,
