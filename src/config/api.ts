@@ -15,9 +15,14 @@ const config = {
   
   // Endpoints
   ENDPOINTS: {
-    ANALYZE_IMAGE: "/process",
-    GET_ANALYSIS: "/get-analysis",
-    EXTRACT_DATA: "/process",
+    UPLOAD: "/upload",
+    UPLOAD_FLASH: "/upload-flash", 
+    RESULTS: "/results",
+    UPDATE: "/update",
+    EXPORT_TO_SHEET: "/export-to-sheet",
+    ANALYZE_IMAGE: "/upload", // Keep for backward compatibility
+    GET_ANALYSIS: "/results",
+    EXTRACT_DATA: "/upload",
     CREATE_DATABASE: "/create-database",
     INSERT_DATA: "/insert-data",
     CSV_DATA: "/csv-data",
