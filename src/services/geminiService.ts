@@ -1,15 +1,14 @@
-
 import axios, { AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
 import config from "../config/api";
 
-// Create an axios instance with default configuration
+// Create an axios instance with default configuration - no timeout
 const apiClient = axios.create({
   baseURL: config.GEMINI_API_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: config.API_TIMEOUT,
+  timeout: 0, // No timeout - unlimited processing time
 });
 
 // Add response interceptor for handling errors
@@ -22,7 +21,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-// Process multiple files with your API
+// Process multiple files with your API - no file size restrictions
 export const processFiles = async (files: File[]) => {
   try {
     const formData = new FormData();
@@ -32,6 +31,7 @@ export const processFiles = async (files: File[]) => {
       headers: {
         "Content-Type": "multipart/form-data",
       },
+      timeout: 0, // No timeout for this request
     });
     
     return response.data;
@@ -41,7 +41,7 @@ export const processFiles = async (files: File[]) => {
   }
 };
 
-// Process single file
+// Process single file - no file size restrictions
 export const processSingleFile = async (file: File) => {
   try {
     const formData = new FormData();
@@ -51,6 +51,7 @@ export const processSingleFile = async (file: File) => {
       headers: {
         "Content-Type": "multipart/form-data",
       },
+      timeout: 0, // No timeout for this request
     });
     
     return response.data;

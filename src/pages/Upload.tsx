@@ -65,6 +65,7 @@ const Upload = () => {
   };
 
   const addFilesToCollection = (selectedFiles: File[]) => {
+    // No file size validation - accept all files
     setFiles(prevFiles => [...prevFiles, ...selectedFiles]);
     setUploadSuccess(false);
     setUploadError(null);
@@ -207,9 +208,9 @@ const Upload = () => {
     setUploadError(null);
 
     try {
-      console.log("Starting file processing with your API...");
+      console.log("Starting file processing with unlimited timeout...");
       
-      // Process files directly with your API
+      // Process files directly with your API - no timeout or size limits
       const results = await processFiles(files);
       console.log("API response:", results);
       
