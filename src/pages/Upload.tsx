@@ -23,8 +23,6 @@ import {
   Smartphone,
   FileImage
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { v4 as uuidv4 } from "uuid";
 import CameraCapture from "@/components/CameraCapture";
 import { createPdfFromImages, downloadPdf } from "@/services/pdfService";
 import { useMediaQuery } from "@/hooks/use-mobile";
@@ -39,7 +37,7 @@ const Upload = () => {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [selectedFilesForPdf, setSelectedFilesForPdf] = useState<boolean[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { isLoading, error, analyzeImage } = useGeminiApi();
+  const { isLoading, error, processFiles } = useGeminiApi();
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 640px)");
 
@@ -209,57 +207,22 @@ const Upload = () => {
     setUploadError(null);
 
     try {
-      toast.info("Uploading files to storage...");
+      console.log("Starting file processing with your API...");
       
-      const uploadedFiles = [];
+      // Process files directly with your API
+      const results = await processFiles(files);
+      console.log("API response:", results);
       
-      for (const file of files) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${uuidv4()}.${fileExt}`;
-        const filePath = `uploads/${fileName}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('user_files')
-          .upload(filePath, file);
-        
-        if (uploadError) throw uploadError;
-        
-        const { error: dbError, data: fileData } = await supabase
-          .from('user_uploads')
-          .insert({
-            file_name: file.name,
-            file_type: file.type,
-            file_size: file.size,
-            storage_path: filePath
-          })
-          .select('id')
-          .single();
-        
-        if (dbError) throw dbError;
-        
-        uploadedFiles.push({
-          id: fileData.id,
-          file: file,
-          path: filePath
-        });
-      }
-      
-      toast.info("Files uploaded, analyzing with Gemini AI...");
-      
-      const pdfFile = files.find(file => file.type === 'application/pdf');
-      const fileToProcess = pdfFile || files[0];
-      
-      const results = await analyzeImage(fileToProcess);
-      console.log("Analysis results:", results);
-      
+      // Handle your API's response structure: {message, data}
       let extractedData = [];
       
-      if (results?.extractedData && Array.isArray(results.extractedData)) {
-        extractedData = results.extractedData;
-      } else if (results?.data && Array.isArray(results.data)) {
+      if (results?.data && Array.isArray(results.data)) {
         extractedData = results.data;
+      } else if (Array.isArray(results)) {
+        extractedData = results;
       }
       
+      // Format data to ensure consistent structure
       const formattedData = extractedData.map((item: any, index: number) => ({
         Entry_ID: item.Entry_ID || index + 1,
         DATE: item.DATE || new Date().toISOString().split('T')[0],
@@ -275,31 +238,33 @@ const Upload = () => {
       
       if (formattedData.length > 0) {
         toast.success("Data processed successfully");
+        console.log("Formatted data:", formattedData);
       }
       
       setUploadSuccess(true);
-      toast.success("Files successfully uploaded and analyzed");
+      toast.success("Files successfully processed and analyzed");
       
-      // Save the filename to session storage as a backup
-      sessionStorage.setItem('lastProcessedFile', fileToProcess.name);
+      // Navigate to spreadsheet view with processed data
+      const primaryFile = files.find(file => file.type === 'application/pdf') || files[0];
+      sessionStorage.setItem('lastProcessedFile', primaryFile.name);
+      sessionStorage.setItem('processedData', JSON.stringify(formattedData));
       
-      // Primary approach: Use state for navigation
       try {
         navigate('/spreadsheet-view', { 
           state: { 
-            fileName: fileToProcess.name
+            fileName: primaryFile.name,
+            processedData: formattedData
           } 
         });
       } catch (error) {
         console.error("Navigation error:", error);
-        // Fallback: Use URL parameter if state navigation fails
-        navigate(`/spreadsheet-view/${encodeURIComponent(fileToProcess.name)}`);
+        navigate(`/spreadsheet-view/${encodeURIComponent(primaryFile.name)}`);
       }
       
     } catch (err) {
-      console.error("Upload error:", err);
+      console.error("Processing error:", err);
       setUploadError(err instanceof Error ? err.message : "An unknown error occurred");
-      toast.error("Failed to upload files");
+      toast.error("Failed to process files");
     } finally {
       setIsUploading(false);
     }
@@ -358,6 +323,7 @@ const Upload = () => {
                   )}
                 </div>
               </div>
+              
               
               <div className="mt-4 flex flex-wrap gap-2">
                 {hasCameraSupport && (
@@ -500,6 +466,7 @@ const Upload = () => {
             </CardContent>
           </Card>
           
+          
           <Card>
             <CardHeader>
               <CardTitle>File Processing</CardTitle>
@@ -542,11 +509,11 @@ const Upload = () => {
               <div>
                 <h3 className="mb-2 text-lg font-medium">Process</h3>
                 <ol className="ml-6 list-decimal space-y-2 text-muted-foreground">
-                  <li>Upload your files securely to our storage</li>
+                  <li>Upload your files directly to our API</li>
                   <li>Gemini AI analyzes the content</li>
+                  <li>Data is extracted and structured</li>
                   <li>Results are displayed as spreadsheet data</li>
-                  <li>Data is synced with Google Sheets</li>
-                  <li>Edit and save changes back to database</li>
+                  <li>Data is automatically saved to database</li>
                 </ol>
               </div>
               
@@ -555,8 +522,8 @@ const Upload = () => {
               <div>
                 <h3 className="mb-2 text-lg font-medium">Privacy & Security</h3>
                 <p className="text-muted-foreground">
-                  Files are securely stored and only accessible to you. 
-                  Processing happens on our secure servers.
+                  Files are processed securely on our servers with Gemini AI. 
+                  All data is handled with enterprise-grade security.
                 </p>
               </div>
             </CardContent>
