@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { geminiApi } from "../services/geminiService";
 import { toast } from "sonner";
@@ -6,7 +7,7 @@ export function useGeminiApi() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Function to analyze an image using Gemini API (regular upload)
+  // Function to analyze an image using Gemini API
   const analyzeImage = async (file: File, options?: any) => {
     setIsLoading(true);
     setError(null);
@@ -21,32 +22,7 @@ export function useGeminiApi() {
       
       if (err instanceof Error) {
         errorMessage = err.message;
-        if (errorMessage.includes('timeout')) {
-          errorMessage = "The request took too long to process. Please try with a smaller file or try again later.";
-        }
-      }
-      
-      setError(err instanceof Error ? err : new Error(errorMessage));
-      setIsLoading(false);
-      throw err;
-    }
-  };
-
-  // Function to analyze an image using Gemini 2.0 Flash
-  const analyzeImageFlash = async (file: File, options?: any) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      toast.info("Processing with Gemini 2.0 Flash...");
-      const result = await geminiApi.analyzeImageFlash(file, options);
-      setIsLoading(false);
-      return result;
-    } catch (err) {
-      let errorMessage = "Unknown error occurred";
-      
-      if (err instanceof Error) {
-        errorMessage = err.message;
+        // Provide more friendly message for timeout errors
         if (errorMessage.includes('timeout')) {
           errorMessage = "The request took too long to process. Please try with a smaller file or try again later.";
         }
@@ -75,7 +51,7 @@ export function useGeminiApi() {
   };
 
   // Function to fetch analysis results
-  const getAnalysisResults = async (analysisId?: string) => {
+  const getAnalysisResults = async (analysisId: string) => {
     setIsLoading(true);
     setError(null);
     
@@ -97,22 +73,6 @@ export function useGeminiApi() {
     
     try {
       const result = await geminiApi.processFiles(files);
-      setIsLoading(false);
-      return result;
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("Unknown error occurred"));
-      setIsLoading(false);
-      throw err;
-    }
-  };
-
-  // Function to process multiple files with Flash
-  const processFilesFlash = async (files: File[]) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const result = await geminiApi.processFilesFlash(files);
       setIsLoading(false);
       return result;
     } catch (err) {
@@ -206,80 +166,13 @@ export function useGeminiApi() {
     isLoading,
     error,
     analyzeImage,
-    analyzeImageFlash,
     extractDataFromImage,
     getAnalysisResults,
     processFiles,
-    processFilesFlash,
-    createDatabase: async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const result = await geminiApi.createDatabase();
-        setIsLoading(false);
-        return result;
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("Unknown error occurred"));
-        setIsLoading(false);
-        throw err;
-      }
-    },
-    insertDataIntoPostgres: async (data: any, tableName: string) => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const result = await geminiApi.insertDataIntoPostgres(data, tableName);
-        setIsLoading(false);
-        return result;
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("Unknown error occurred"));
-        setIsLoading(false);
-        throw err;
-      }
-    },
-    getCsvData: async (id: string) => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const result = await geminiApi.getCsvData(id);
-        setIsLoading(false);
-        return result;
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("Unknown error occurred"));
-        setIsLoading(false);
-        throw err;
-      }
-    },
-    updateCsvData: async (id: string, data: any) => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const result = await geminiApi.updateCsvData(id, data);
-        setIsLoading(false);
-        return result;
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("Unknown error occurred"));
-        setIsLoading(false);
-        throw err;
-      }
-    },
-    getAllCsvData: async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const result = await geminiApi.getAllCsvData();
-        setIsLoading(false);
-        return result;
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("Unknown error occurred"));
-        setIsLoading(false);
-        throw err;
-      }
-    }
+    createDatabase,
+    insertDataIntoPostgres,
+    getCsvData,
+    updateCsvData,
+    getAllCsvData
   };
 }

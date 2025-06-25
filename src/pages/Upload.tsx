@@ -1,4 +1,3 @@
-
 import { useState, useRef, ChangeEvent, DragEvent, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -24,6 +23,8 @@ import {
   Smartphone,
   FileImage
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { v4 as uuidv4 } from "uuid";
 import CameraCapture from "@/components/CameraCapture";
 import { createPdfFromImages, downloadPdf } from "@/services/pdfService";
 import { useMediaQuery } from "@/hooks/use-mobile";
@@ -208,7 +209,42 @@ const Upload = () => {
     setUploadError(null);
 
     try {
-      toast.info("Processing files with Gemini AI...");
+      toast.info("Uploading files to storage...");
+      
+      const uploadedFiles = [];
+      
+      for (const file of files) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const filePath = `uploads/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('user_files')
+          .upload(filePath, file);
+        
+        if (uploadError) throw uploadError;
+        
+        const { error: dbError, data: fileData } = await supabase
+          .from('user_uploads')
+          .insert({
+            file_name: file.name,
+            file_type: file.type,
+            file_size: file.size,
+            storage_path: filePath
+          })
+          .select('id')
+          .single();
+        
+        if (dbError) throw dbError;
+        
+        uploadedFiles.push({
+          id: fileData.id,
+          file: file,
+          path: filePath
+        });
+      }
+      
+      toast.info("Files uploaded, analyzing with Gemini AI...");
       
       const pdfFile = files.find(file => file.type === 'application/pdf');
       const fileToProcess = pdfFile || files[0];
@@ -225,7 +261,7 @@ const Upload = () => {
       }
       
       const formattedData = extractedData.map((item: any, index: number) => ({
-        Entry_ID: item.Entry_ID || index + 1,  
+        Entry_ID: item.Entry_ID || index + 1,
         DATE: item.DATE || new Date().toISOString().split('T')[0],
         PARTICULARS: item.PARTICULARS || '',
         Voucher_BillNo: item.Voucher_BillNo || '',
@@ -263,7 +299,7 @@ const Upload = () => {
     } catch (err) {
       console.error("Upload error:", err);
       setUploadError(err instanceof Error ? err.message : "An unknown error occurred");
-      toast.error("Failed to process files");
+      toast.error("Failed to upload files");
     } finally {
       setIsUploading(false);
     }
@@ -506,11 +542,11 @@ const Upload = () => {
               <div>
                 <h3 className="mb-2 text-lg font-medium">Process</h3>
                 <ol className="ml-6 list-decimal space-y-2 text-muted-foreground">
-                  <li>Select your files for analysis</li>
-                  <li>Gemini AI processes and extracts data</li>
-                  <li>Data is automatically saved to database</li>
-                  <li>Results are synced with Google Sheets</li>
-                  <li>View and edit data in spreadsheet format</li>
+                  <li>Upload your files securely to our storage</li>
+                  <li>Gemini AI analyzes the content</li>
+                  <li>Results are displayed as spreadsheet data</li>
+                  <li>Data is synced with Google Sheets</li>
+                  <li>Edit and save changes back to database</li>
                 </ol>
               </div>
               
@@ -519,8 +555,8 @@ const Upload = () => {
               <div>
                 <h3 className="mb-2 text-lg font-medium">Privacy & Security</h3>
                 <p className="text-muted-foreground">
-                  Files are processed securely through our API. 
-                  All data is handled with enterprise-grade security.
+                  Files are securely stored and only accessible to you. 
+                  Processing happens on our secure servers.
                 </p>
               </div>
             </CardContent>

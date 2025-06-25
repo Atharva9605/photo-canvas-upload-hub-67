@@ -16,7 +16,7 @@ const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error.response?.data?.error || error.response?.data?.message || "An error occurred";
+    const message = error.response?.data?.message || "An error occurred";
     toast.error(`API Error: ${message}`);
     return Promise.reject(error);
   }
@@ -53,7 +53,7 @@ export const postData = async <T>(endpoint: string, data: any): Promise<T> => {
 export const uploadFile = async <T>(endpoint: string, file: File, additionalData?: any): Promise<T> => {
   try {
     const formData = new FormData();
-    formData.append("files", file); // Changed from "file" to "files" to match Flask API
+    formData.append("file", file);
     
     // Add any additional data if provided
     if (additionalData) {
@@ -75,64 +75,40 @@ export const uploadFile = async <T>(endpoint: string, file: File, additionalData
   }
 };
 
-// Process multiple files method
-export const uploadMultipleFiles = async <T>(endpoint: string, files: File[]): Promise<T> => {
-  try {
-    const formData = new FormData();
-    files.forEach(file => formData.append('files', file)); // Match Flask API expectation
-    
-    const response = await apiClient.post<T>(endpoint, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    
-    return response.data;
-  } catch (error) {
-    console.error(`Error uploading multiple files to ${endpoint}:`, error);
-    throw error;
-  }
-};
-
 // Specific API endpoints for Gemini functionality
 export const geminiApi = {
-  // Analyze image using regular upload endpoint
+  // Analyze image using Gemini API
   analyzeImage: (file: File, options?: any) => 
-    uploadFile<any>(config.ENDPOINTS.UPLOAD, file, options),
+    uploadFile<any>(config.ENDPOINTS.ANALYZE_IMAGE, file, options),
   
-  // Analyze image using Gemini 2.0 Flash
-  analyzeImageFlash: (file: File, options?: any) => 
-    uploadFile<any>(config.ENDPOINTS.UPLOAD_FLASH, file, options),
+  // Get analysis results by ID
+  getAnalysisResults: (analysisId: string) => 
+    fetchData<any>(`${config.ENDPOINTS.GET_ANALYSIS}/${analysisId}`),
   
-  // Get analysis results
-  getAnalysisResults: (analysisId?: string) => 
-    fetchData<any>(config.ENDPOINTS.RESULTS),
-  
-  // Extract data from an image (use regular upload)
+  // Extract data from an image
   extractDataFromImage: (file: File) => 
-    uploadFile<any>(config.ENDPOINTS.UPLOAD, file),
+    uploadFile<any>(config.ENDPOINTS.EXTRACT_DATA, file),
   
   // Process multiple files
   processFiles: async (files: File[]) => {
-    return uploadMultipleFiles<any>(config.ENDPOINTS.UPLOAD, files);
+    try {
+      const formData = new FormData();
+      files.forEach(file => formData.append('file', file));
+      
+      const response = await apiClient.post<any>(config.ENDPOINTS.EXTRACT_DATA, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Error processing multiple files:`, error);
+      throw error;
+    }
   },
 
-  // Process multiple files with Flash
-  processFilesFlash: async (files: File[]) => {
-    return uploadMultipleFiles<any>(config.ENDPOINTS.UPLOAD_FLASH, files);
-  },
-
-  // Update data
-  updateData: async (updates: any[]) => {
-    return postData<any>(config.ENDPOINTS.UPDATE, updates);
-  },
-
-  // Export to Google Sheet
-  exportToSheet: async (data: any[]) => {
-    return postData<any>(config.ENDPOINTS.EXPORT_TO_SHEET, data);
-  },
-
-  // Legacy endpoints for backward compatibility
+  // Create database for PostgreSQL
   createDatabase: async () => {
     try {
       const response = await apiClient.post<any>('/create-database', {});
@@ -143,6 +119,7 @@ export const geminiApi = {
     }
   },
 
+  // Insert data into PostgreSQL
   insertDataIntoPostgres: async (data: any, tableName: string) => {
     try {
       const response = await apiClient.post<any>('/insert-data', {
@@ -156,6 +133,7 @@ export const geminiApi = {
     }
   },
   
+  // Get CSV data by ID
   getCsvData: async (id: string) => {
     try {
       const response = await apiClient.get<any>(`${config.ENDPOINTS.CSV_DATA}/${id}`);
@@ -166,6 +144,7 @@ export const geminiApi = {
     }
   },
   
+  // Update CSV data
   updateCsvData: async (id: string, data: any) => {
     try {
       const response = await apiClient.post<any>(`${config.ENDPOINTS.UPDATE_CSV_DATA}/${id}`, { data });
@@ -176,6 +155,7 @@ export const geminiApi = {
     }
   },
   
+  // Get all CSV data
   getAllCsvData: async () => {
     try {
       const response = await apiClient.get<any>(config.ENDPOINTS.CSV_DATA);
