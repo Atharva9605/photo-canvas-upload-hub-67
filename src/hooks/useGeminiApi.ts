@@ -60,10 +60,31 @@ export function useGeminiApi() {
     }
   };
 
+  // Compatibility methods for existing pages
+  const getAnalysisResults = async (id: string) => {
+    return await geminiApi.getAnalysisResults(id);
+  };
+
+  const getAllCsvData = async () => {
+    return await geminiApi.getAllCsvData();
+  };
+
+  const createDatabase = async () => {
+    return await geminiApi.createDatabase();
+  };
+
+  const insertDataIntoPostgres = async (data: any, tableName: string) => {
+    return await geminiApi.insertDataIntoPostgres(data, tableName);
+  };
+
   return {
     isLoading,
     error,
     processFiles,
-    processSingleFile
+    processSingleFile,
+    getAnalysisResults,
+    getAllCsvData,
+    createDatabase,
+    insertDataIntoPostgres
   };
 }

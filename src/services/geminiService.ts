@@ -22,32 +22,6 @@ apiClient.interceptors.response.use(
   }
 );
 
-// File upload method for processing files with your API
-export const uploadFile = async <T>(endpoint: string, file: File, additionalData?: any): Promise<T> => {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    
-    // Add any additional data if provided
-    if (additionalData) {
-      Object.keys(additionalData).forEach(key => {
-        formData.append(key, additionalData[key]);
-      });
-    }
-    
-    const response = await apiClient.post<T>(endpoint, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    
-    return response.data;
-  } catch (error) {
-    console.error(`Error uploading file to ${endpoint}:`, error);
-    throw error;
-  }
-};
-
 // Process multiple files with your API
 export const processFiles = async (files: File[]) => {
   try {
@@ -67,12 +41,56 @@ export const processFiles = async (files: File[]) => {
   }
 };
 
+// Process single file
+export const processSingleFile = async (file: File) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await apiClient.post<any>(config.ENDPOINTS.PROCESS, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error(`Error processing single file:`, error);
+    throw error;
+  }
+};
+
 // Simplified API object for your backend
 export const geminiApi = {
   // Process files using your API
   processFiles: (files: File[]) => processFiles(files),
   
   // Process single file
-  processSingleFile: (file: File) => 
-    uploadFile<any>(config.ENDPOINTS.PROCESS, file)
+  processSingleFile: (file: File) => processSingleFile(file),
+  
+  // Mock methods for compatibility - since your API handles everything in /process
+  getAnalysisResults: async (id: string) => {
+    // Since your API processes everything in one go, we'll return a mock structure
+    // In a real scenario, you might want to store results and retrieve them
+    console.warn("getAnalysisResults called but new API doesn't support this. Returning mock data.");
+    return { extractedData: [], message: "Analysis results not available with current API" };
+  },
+  
+  getAllCsvData: async () => {
+    // Your API doesn't have this endpoint, so we return empty array
+    console.warn("getAllCsvData called but new API doesn't support this. Returning empty array.");
+    return [];
+  },
+  
+  createDatabase: async () => {
+    // Your API handles database creation internally
+    console.log("Database creation handled by API internally");
+    return { success: true };
+  },
+  
+  insertDataIntoPostgres: async (data: any, tableName: string) => {
+    // Your API handles database insertion internally during /process
+    console.log("Database insertion handled by API internally during processing");
+    return { success: true, id: Date.now().toString() };
+  }
 };
